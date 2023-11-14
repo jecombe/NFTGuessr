@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 import "fhevm/lib/TFHE.sol";
 
@@ -18,6 +17,18 @@ contract NftGuessr {
         euint32 southLat;
         euint32 eastLon;
         euint32 westLon;
+        euint32 lat;
+        euint32 lng;
+    }
+
+    struct NFTLocation {
+        uint32 northLat;
+        uint32 southLat;
+        uint32 eastLon;
+        uint32 westLon;
+        uint tax;
+        uint lat;
+        uint lng;
     }
 
     struct NFT {
@@ -27,7 +38,10 @@ contract NftGuessr {
         uint256 tokenId; // Ajout de l'identifiant unique
         bool isStaked;
         bool isReset;
-        uint256 tax; // Nouvelle variable pour la taxe
+        uint256 tax;
+        address creator;
+
+        // Nouvelle variable pour la taxe
         // uint256 fees; // Nouveau champ pour les frais du NFT
     }
 
@@ -192,6 +206,14 @@ contract NftGuessr {
         owner = _newOwner;
     }
 
+    function changeNFTTax(uint256 tokenId, uint256 newTax) public {
+        require(msg.sender == nfts[tokenId - 1].owner, "You can only change tax for your own NFT");
+        require(nfts[tokenId - 1].isReset, "NFT is not reset");
+        require(!nfts[tokenId - 1].isStaked, "NFT is staked");
+
+        nfts[tokenId - 1].tax = newTax;
+    }
+
     // Fonction pour "staker" des NFTs
     function stakeNFT(uint256[] calldata nftIndices) public {
         require(nftIndices.length > 0, "No NFTs to stake");
@@ -199,8 +221,8 @@ contract NftGuessr {
 
         for (uint256 i = 0; i < nftIndices.length; i++) {
             uint256 nftIndex = nftIndices[i] - 1; // Soustrayez 1 pour l'index correct
+            require(msg.sender != nfts[nftIndex].creator, "not creator can stake");
             require(nftIndex < nfts.length, "Invalid NFT index");
-
             require(msg.sender == nfts[nftIndex].owner, "You can only stake your own NFT");
             require(!nfts[nftIndex].isStaked, "NFT is already staked");
             require(!nfts[nftIndex].isReset, "NFT is Reset");
@@ -244,22 +266,6 @@ contract NftGuessr {
         }
     }
 
-    function getNFTLocation(
-        uint256 tokenId
-    ) public view onlyOwner returns (uint32 northLat, uint32 southLat, uint32 eastLon, uint32 westLon, uint tax) {
-        require(tokenId >= 1 && tokenId < nextTokenId, "Invalid NFT token ID");
-
-        uint256 nftIndex = tokenId - 1; // Soustrayez 1 pour l'index correct
-        require(nftIndex < nfts.length, "Invalid NFT index");
-
-        Location memory location = nfts[nftIndex].location;
-        northLat = TFHE.decrypt(location.northLat);
-        southLat = TFHE.decrypt(location.southLat);
-        eastLon = TFHE.decrypt(location.eastLon);
-        westLon = TFHE.decrypt(location.westLon);
-        tax = nfts[nftIndex].tax;
-    }
-
     // STAKE ACCESS FUNCTION
     function accessGeoNFTFunction(uint256 functionId) public {
         require(hasStakedEnoughNFTs[msg.sender], "You must stake 3 NFTs to access this function");
@@ -272,6 +278,28 @@ contract NftGuessr {
         require(!nfts[tokenId - 1].isStaked, "NFT is staked");
 
         nfts[tokenId - 1].tax = newTax;
+    }
+
+    // Déclarez une structure pour contenir les données de localisation
+
+    function getNFTLocation(uint256 tokenId) public view onlyOwner returns (NFTLocation memory) {
+        require(tokenId >= 1 && tokenId < nextTokenId, "Invalid NFT token ID");
+
+        uint256 nftIndex = tokenId - 1; // Soustrayez 1 pour l'index correct
+        require(nftIndex < nfts.length, "Invalid NFT index");
+
+        Location memory location = nfts[nftIndex].location;
+        uint32 northLat = TFHE.decrypt(location.northLat);
+        uint32 southLat = TFHE.decrypt(location.southLat);
+        uint32 eastLon = TFHE.decrypt(location.eastLon);
+        uint32 westLon = TFHE.decrypt(location.westLon);
+        uint tax = nfts[nftIndex].tax;
+        uint lat = TFHE.decrypt(location.lat);
+        uint lng = TFHE.decrypt(location.lng);
+
+        // Créez une instance de la structure et retournez-la
+        NFTLocation memory nftLocation = NFTLocation(northLat, southLat, eastLon, westLon, tax, lat, lng);
+        return nftLocation;
     }
 
     //GAMING
@@ -289,7 +317,6 @@ contract NftGuessr {
         for (uint256 i = 0; i < nfts.length; i++) {
             require(msg.sender != nfts[i].owner, "You cannot claim your own NFT");
             bool isGreaterLat = TFHE.decrypt(TFHE.ge(lat, nfts[i].location.southLat));
-
             bool isLessLat = TFHE.decrypt(TFHE.le(lat, nfts[i].location.northLat));
             bool isGreaterLng = TFHE.decrypt(TFHE.ge(lng, nfts[i].location.westLon));
             bool isLessLng = TFHE.decrypt(TFHE.le(lng, nfts[i].location.eastLon));
@@ -328,44 +355,52 @@ contract NftGuessr {
 
     // Fonction pour enlever un identifiant de NFT de la liste du propriétaire
 
-    function createNFT(
-        bytes[] calldata _northLat,
-        bytes[] calldata _southLat,
-        bytes[] calldata _eastLon,
-        bytes[] calldata _westLon
-    ) public onlyOwner {
-        for (uint256 i = 0; i < _southLat.length; i++) {
-            euint32 northLat = TFHE.asEuint32(_northLat[i]);
-            euint32 southLat = TFHE.asEuint32(_southLat[i]);
-            euint32 eastLon = TFHE.asEuint32(_eastLon[i]);
-            euint32 westLon = TFHE.asEuint32(_westLon[i]);
+    function createNFT(bytes[] calldata data) public onlyOwner {
+        require(data.length >= 6, "Insufficient data provided");
+        require(data.length % 2 == 0, "Invalid data length. It must be an even number.");
 
-            Location memory location = Location(northLat, southLat, eastLon, westLon);
-            NFT memory newNFT = NFT(address(this), location, false, nextTokenId, false, false, 0);
+        uint256 arrayLength = data.length / 6;
+
+        for (uint256 i = 0; i < arrayLength; i++) {
+            uint256 baseIndex = i * 6;
+
+            euint32 northLat = TFHE.asEuint32(data[baseIndex]);
+            euint32 southLat = TFHE.asEuint32(data[baseIndex + 1]);
+            euint32 eastLon = TFHE.asEuint32(data[baseIndex + 2]);
+            euint32 westLon = TFHE.asEuint32(data[baseIndex + 3]);
+            euint32 lat = TFHE.asEuint32(data[baseIndex + 4]);
+            euint32 lng = TFHE.asEuint32(data[baseIndex + 5]);
+
+            Location memory location = Location(northLat, southLat, eastLon, westLon, lat, lng);
+            NFT memory newNFT = NFT(address(this), location, false, nextTokenId, false, false, 0, address(this));
             nfts.push(newNFT);
             nftsByOwner[address(this)].push(nextTokenId);
             nextTokenId++;
         }
     }
 
-    function createNftForOwner(
-        bytes[] calldata _northLat,
-        bytes[] calldata _southLat,
-        bytes[] calldata _eastLon,
-        bytes[] calldata _westLon
-    ) public {
+    function createNftForOwner(bytes[] calldata data) public {
         require(hasStakedEnoughNFTs[msg.sender], "The owner must stake 3 NFTs to create a new NFT");
 
-        for (uint256 i = 0; i < _southLat.length; i++) {
-            euint32 northLat = TFHE.asEuint32(_northLat[i]);
-            euint32 southLat = TFHE.asEuint32(_southLat[i]);
-            euint32 eastLon = TFHE.asEuint32(_eastLon[i]);
-            euint32 westLon = TFHE.asEuint32(_westLon[i]);
+        require(data.length == 7, "Insufficient data");
 
-            Location memory location = Location(northLat, southLat, eastLon, westLon);
-            NFT memory newNFT = NFT(address(this), location, false, nextTokenId, false, false, 0);
+        uint256 arrayLength = data.length / 7;
+
+        for (uint256 i = 0; i < arrayLength; i++) {
+            uint256 baseIndex = i * 7;
+
+            euint32 northLat = TFHE.asEuint32(data[baseIndex]);
+            euint32 southLat = TFHE.asEuint32(data[baseIndex + 1]);
+            euint32 eastLon = TFHE.asEuint32(data[baseIndex + 2]);
+            euint32 westLon = TFHE.asEuint32(data[baseIndex + 3]);
+            euint32 lat = TFHE.asEuint32(data[baseIndex + 4]);
+            euint32 lng = TFHE.asEuint32(data[baseIndex + 5]);
+            uint256 tax = TFHE.decrypt(TFHE.asEuint32(data[baseIndex + 6]));
+
+            Location memory location = Location(northLat, southLat, eastLon, westLon, lat, lng);
+            NFT memory newNFT = NFT(msg.sender, location, false, nextTokenId, false, false, tax, msg.sender);
             nfts.push(newNFT);
-            nftsByOwner[address(this)].push(nextTokenId);
+            nftsByOwner[msg.sender].push(nextTokenId);
             nextTokenId++;
         }
     }
@@ -379,8 +414,9 @@ contract NftGuessr {
             uint256 tax = taxes[i];
 
             require(tokenId >= 1 && tokenId < nextTokenId, "Invalid NFT token ID");
-
             uint256 nftIndex = tokenId - 1; // Soustrayez 1 pour l'index correct
+            require(msg.sender != nfts[nftIndex].creator, "not creator can back in game");
+
             require(nftIndex < nfts.length, "Invalid NFT index");
             require(msg.sender == nfts[nftIndex].owner, "You don't own this NFT");
             require(nfts[nftIndex].claimed, "NFT need to be claimed");
@@ -437,6 +473,7 @@ contract NftGuessr {
     function transferNFT(address to, uint256 nftIndex) public {
         require(nftIndex < nfts.length, "Invalid NFT index");
         require(msg.sender == nfts[nftIndex].owner, "You are not the owner of this NFT");
+        require(msg.sender != nfts[nftIndex].creator, "The creator cannot transfer nft");
 
         require(!nfts[nftIndex].isStaked, "Cannot transfer a staked NFT");
         require(!nfts[nftIndex].isReset, "Cannot transfer a Reset NFT");
