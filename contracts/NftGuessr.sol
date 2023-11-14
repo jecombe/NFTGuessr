@@ -164,7 +164,7 @@ contract NftGuessr {
     // Fonction interne pour ajouter un NFT à un propriétaire
 
     function getTotalNFTs() public view returns (uint256) {
-        return nfts.length + 1;
+        return nfts.length;
     }
 
     function getTotalStakedNFTs() public view returns (uint256) {
