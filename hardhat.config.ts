@@ -30,6 +30,7 @@ const chainIds = {
   "arbitrum-mainnet": 42161,
   avalanche: 43114,
   bsc: 56,
+  fhenix: 5432,
   ganache: 1337,
   hardhat: 31337,
   mainnet: 1,
@@ -53,6 +54,9 @@ function getChainConfig(chain: keyof typeof chainIds): NetworkUserConfig {
       break;
     case "bsc":
       jsonRpcUrl = "https://bsc-dataseed1.binance.org";
+      break;
+    case "fhenix":
+      jsonRpcUrl = "https://fhenode.fhenix.io/new/evm";
       break;
     default:
       jsonRpcUrl = "https://" + chain + ".infura.io/v3/" + infuraApiKey;
@@ -114,6 +118,7 @@ const config: HardhatUserConfig = {
     "polygon-mumbai": getChainConfig("polygon-mumbai"),
     sepolia: getChainConfig("sepolia"),
     zama: getChainConfig("zama"),
+    fhenix: getChainConfig("fhenix"),
     local: getChainConfig("local"),
   },
   paths: {
