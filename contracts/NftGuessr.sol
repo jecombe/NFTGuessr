@@ -322,9 +322,10 @@ contract NftGuessr is ERC721Enumerable {
             delete previousOwner[_tokenId];
             delete creatorNft[previous];
 
-            result = true;
-            previousOwner[_tokenId] = msg.sender;
             _transfer(ownerOf(_tokenId), msg.sender, _tokenId);
+            removeElement(resetNft[previous], _tokenId);
+            previousOwner[_tokenId] = msg.sender;
+            result = true;
         }
         emit GpsCheckResult(msg.sender, result, _tokenId);
         return result;
