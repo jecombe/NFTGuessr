@@ -309,6 +309,9 @@ contract NftGuessr is ERC721Enumerable {
             require(ownerOf(_tokenId) != msg.sender);
 
             address previous = previousOwner[_tokenId];
+
+            require(previous != msg.sender);
+
             uint256 nftFees = userFees[previous][_tokenId];
             uint256 totalTax = fees + nftFees;
 
@@ -323,7 +326,9 @@ contract NftGuessr is ERC721Enumerable {
             delete creatorNft[previous];
 
             _transfer(ownerOf(_tokenId), msg.sender, _tokenId);
-            removeElement(resetNft[previous], _tokenId);
+            if (previous != address(this)) {
+                removeElement(resetNft[previous], _tokenId);
+            }
             previousOwner[_tokenId] = msg.sender;
             result = true;
         }
