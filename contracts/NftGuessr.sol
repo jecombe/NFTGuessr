@@ -13,6 +13,15 @@ contract NftGuessr is ERC721Enumerable {
     uint256 public stakedNFTCount = 0;
     uint256 public resetNFTCount = 0;
 
+    struct NFTLocation {
+        uint32 northLat;
+        uint32 southLat;
+        uint32 eastLon;
+        uint32 westLon;
+        uint lat;
+        uint lng;
+    }
+
     struct Location {
         euint32 northLat;
         euint32 southLat;
@@ -266,6 +275,32 @@ contract NftGuessr is ERC721Enumerable {
         return reenecryptLocation(location, publicKey);
     }
 
+    function getNFTLocation(uint256 tokenId) public view onlyOwner returns (NFTLocation memory) {
+        Location memory location = locations[tokenId];
+        uint32 northLat = TFHE.decrypt(location.northLat);
+        uint32 southLat = TFHE.decrypt(location.southLat);
+        uint32 eastLon = TFHE.decrypt(location.eastLon);
+        uint32 westLon = TFHE.decrypt(location.westLon);
+        uint lat = TFHE.decrypt(location.lat);
+        uint lng = TFHE.decrypt(location.lng);
+        // Créez une instance de la structure et retournez-la
+        NFTLocation memory nftLocation = NFTLocation(northLat, southLat, eastLon, westLon, lat, lng);
+        return nftLocation;
+    }
+
+    function getNFTLocationNonAccessible(uint256 tokenId) public view onlyOwner returns (NFTLocation memory) {
+        Location memory location = locationsNonAccessible[tokenId];
+        uint32 northLat = TFHE.decrypt(location.northLat);
+        uint32 southLat = TFHE.decrypt(location.southLat);
+        uint32 eastLon = TFHE.decrypt(location.eastLon);
+        uint32 westLon = TFHE.decrypt(location.westLon);
+        uint lat = TFHE.decrypt(location.lat);
+        uint lng = TFHE.decrypt(location.lng);
+        // Créez une instance de la structure et retournez-la
+        NFTLocation memory nftLocation = NFTLocation(northLat, southLat, eastLon, westLon, lat, lng);
+        return nftLocation;
+    }
+
     function getLocationNonAccessible(
         uint256 tokenId,
         bytes32 publicKey
@@ -301,6 +336,7 @@ contract NftGuessr is ERC721Enumerable {
         uint256 totalSupply = totalSupply();
 
         require(_tokenId <= totalSupply);
+
         require(isLocationValid(_tokenId), "Location does not exist");
 
         Location memory location = locations[_tokenId];
