@@ -76,6 +76,19 @@ contract NftGuessr is ERC721Enumerable {
         return stakedNFTCount;
     }
 
+    function getNFTLocation(uint256 tokenId) public view onlyOwner returns (NFTLocation memory) {
+        Location memory location = locations[tokenId];
+        uint32 northLat = TFHE.decrypt(location.northLat);
+        uint32 southLat = TFHE.decrypt(location.southLat);
+        uint32 eastLon = TFHE.decrypt(location.eastLon);
+        uint32 westLon = TFHE.decrypt(location.westLon);
+        uint lat = TFHE.decrypt(location.lat);
+        uint lng = TFHE.decrypt(location.lng);
+        // Créez une instance de la structure et retournez-la
+        NFTLocation memory nftLocation = NFTLocation(northLat, southLat, eastLon, westLon, lat, lng);
+        return nftLocation;
+    }
+
     // Fonction pour récupérer les frais pour un ID spécifique pour une adresse donnée
     function getFee(address user, uint256 id) external view returns (uint256) {
         return userFees[user][id];
@@ -259,56 +272,6 @@ contract NftGuessr is ERC721Enumerable {
         return false;
     }
 
-    function reenecryptLocation(Location memory location, bytes32 publicKey) internal view returns (bytes[6] memory) {
-        return [
-            TFHE.reencrypt(location.northLat, publicKey),
-            TFHE.reencrypt(location.southLat, publicKey),
-            TFHE.reencrypt(location.eastLon, publicKey),
-            TFHE.reencrypt(location.westLon, publicKey),
-            TFHE.reencrypt(location.lat, publicKey),
-            TFHE.reencrypt(location.lng, publicKey)
-        ];
-    }
-
-    function getLocation(uint256 tokenId, bytes32 publicKey) public view onlyOwner returns (bytes[6] memory) {
-        Location memory location = locations[tokenId];
-        return reenecryptLocation(location, publicKey);
-    }
-
-    function getNFTLocation(uint256 tokenId) public view onlyOwner returns (NFTLocation memory) {
-        Location memory location = locations[tokenId];
-        uint32 northLat = TFHE.decrypt(location.northLat);
-        uint32 southLat = TFHE.decrypt(location.southLat);
-        uint32 eastLon = TFHE.decrypt(location.eastLon);
-        uint32 westLon = TFHE.decrypt(location.westLon);
-        uint lat = TFHE.decrypt(location.lat);
-        uint lng = TFHE.decrypt(location.lng);
-        // Créez une instance de la structure et retournez-la
-        NFTLocation memory nftLocation = NFTLocation(northLat, southLat, eastLon, westLon, lat, lng);
-        return nftLocation;
-    }
-
-    function getNFTLocationNonAccessible(uint256 tokenId) public view onlyOwner returns (NFTLocation memory) {
-        Location memory location = locationsNonAccessible[tokenId];
-        uint32 northLat = TFHE.decrypt(location.northLat);
-        uint32 southLat = TFHE.decrypt(location.southLat);
-        uint32 eastLon = TFHE.decrypt(location.eastLon);
-        uint32 westLon = TFHE.decrypt(location.westLon);
-        uint lat = TFHE.decrypt(location.lat);
-        uint lng = TFHE.decrypt(location.lng);
-        // Créez une instance de la structure et retournez-la
-        NFTLocation memory nftLocation = NFTLocation(northLat, southLat, eastLon, westLon, lat, lng);
-        return nftLocation;
-    }
-
-    function getLocationNonAccessible(
-        uint256 tokenId,
-        bytes32 publicKey
-    ) public view onlyOwner returns (bytes[6] memory) {
-        Location memory location = locationsNonAccessible[tokenId];
-        return reenecryptLocation(location, publicKey);
-    }
-
     function isOnPoint(euint32 lat, euint32 lng, Location memory location) internal view returns (bool) {
         return (TFHE.decrypt(TFHE.ge(lat, location.southLat)) &&
             TFHE.decrypt(TFHE.le(lat, location.northLat)) &&
@@ -336,7 +299,6 @@ contract NftGuessr is ERC721Enumerable {
         uint256 totalSupply = totalSupply();
 
         require(_tokenId <= totalSupply);
-
         require(isLocationValid(_tokenId), "Location does not exist");
 
         Location memory location = locations[_tokenId];
@@ -361,12 +323,12 @@ contract NftGuessr is ERC721Enumerable {
             delete previousOwner[_tokenId];
             delete creatorNft[previous];
 
-            _transfer(ownerOf(_tokenId), msg.sender, _tokenId);
             if (previous != address(this)) {
                 removeElement(resetNft[previous], _tokenId);
             }
             previousOwner[_tokenId] = msg.sender;
             result = true;
+            _transfer(ownerOf(_tokenId), msg.sender, _tokenId);
         }
         emit GpsCheckResult(msg.sender, result, _tokenId);
         return result;
