@@ -20,6 +20,7 @@ contract NftGuessr is ERC721Enumerable {
         euint32 westLon;
         euint32 lat;
         euint32 lng;
+        bool isValid;
     }
 
     uint256 public fees = 1 ether;
@@ -183,7 +184,8 @@ contract NftGuessr is ERC721Enumerable {
                 eastLon: TFHE.asEuint32(data[baseIndex + 2]),
                 westLon: TFHE.asEuint32(data[baseIndex + 3]),
                 lat: TFHE.asEuint32(data[baseIndex + 4]),
-                lng: TFHE.asEuint32(data[baseIndex + 5])
+                lng: TFHE.asEuint32(data[baseIndex + 5]),
+                isValid: true
             });
             _mint(_owner, tokenId);
             uint256 fee = TFHE.decrypt(TFHE.asEuint32(data[baseIndex + 6]));
@@ -279,39 +281,52 @@ contract NftGuessr is ERC721Enumerable {
             TFHE.decrypt(TFHE.le(lng, location.eastLon)));
     }
 
-    function checkGps(bytes calldata userLatitude, bytes calldata userLongitude) public payable returns (bool) {
+    function isLocationValid(uint256 locationId) public view returns (bool) {
+        return locations[locationId].isValid;
+    }
+
+    function checkGps(
+        bytes calldata userLatitude,
+        bytes calldata userLongitude,
+        uint256 _tokenId
+    ) public payable returns (bool) {
         require(
             msg.value >= fees,
             string(abi.encodePacked("Insufficient fees. A minimum of ", fees, " MATIC is required."))
         );
         euint32 lat = TFHE.asEuint32(userLatitude);
         euint32 lng = TFHE.asEuint32(userLongitude);
-        bool result = false;
-        uint256 tokenId = 0;
-        uint256 totalSupply = totalSupply();
-        for (uint256 i = 1; i <= totalSupply; i++) {
-            Location memory location = locations[i];
-            tokenId = i;
-            if (isOnPoint(lat, lng, location)) {
-                require(ownerOf(i) != msg.sender);
-                address previous = previousOwner[tokenId];
-                uint256 nftFees = userFees[previous][i];
-                uint256 totalTax = fees + nftFees;
-                require(msg.value >= totalTax, "Insufficient funds to pay NFT tax");
-                payable(previous).transfer(nftFees);
-                locationsNonAccessible[tokenId] = locations[i];
-                delete userFees[previous][i];
-                delete locations[i];
-                delete previousOwner[tokenId];
-                delete creatorNft[previous];
-                result = true;
-                previousOwner[tokenId] = msg.sender;
-                _transfer(ownerOf(i), msg.sender, i);
 
-                break;
-            }
+        bool result = false;
+        uint256 totalSupply = totalSupply();
+
+        require(_tokenId <= totalSupply);
+        require(isLocationValid(_tokenId), "Location does not exist");
+
+        Location memory location = locations[_tokenId];
+
+        if (isOnPoint(lat, lng, location)) {
+            require(ownerOf(_tokenId) != msg.sender);
+
+            address previous = previousOwner[_tokenId];
+            uint256 nftFees = userFees[previous][_tokenId];
+            uint256 totalTax = fees + nftFees;
+
+            require(msg.value >= totalTax, "Insufficient funds to pay NFT tax");
+
+            payable(previous).transfer(nftFees);
+            locationsNonAccessible[_tokenId] = locations[_tokenId];
+
+            delete userFees[previous][_tokenId];
+            delete locations[_tokenId];
+            delete previousOwner[_tokenId];
+            delete creatorNft[previous];
+
+            result = true;
+            previousOwner[_tokenId] = msg.sender;
+            _transfer(ownerOf(_tokenId), msg.sender, _tokenId);
         }
-        emit GpsCheckResult(msg.sender, result, tokenId);
+        emit GpsCheckResult(msg.sender, result, _tokenId);
         return result;
     }
 
