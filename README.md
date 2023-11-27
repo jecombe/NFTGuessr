@@ -1,259 +1,139 @@
-# Hardhat Template [![Open in Gitpod][gitpod-badge]][gitpod] [![Github Actions][gha-badge]][gha] [![Hardhat][hardhat-badge]][hardhat] [![License: MIT][license-badge]][license]
+# NftGuessr - Smart Contract Documentation
 
-[gitpod]: https://gitpod.io/#https://github.com/zama-ai/fhevm-hardhat-template
-[gitpod-badge]: https://img.shields.io/badge/Gitpod-Open%20in%20Gitpod-FFB45B?logo=gitpod
-[gha]: https://github.com/zama-ai/fhevm-hardhat-template/actions
-[gha-badge]: https://github.com/zama-ai/fhevm-hardhat-template/actions/workflows/ci.yml/badge.svg
-[hardhat]: https://hardhat.org/
-[hardhat-badge]: https://img.shields.io/badge/Built%20with-Hardhat-FFDB1C.svg
-[license]: https://opensource.org/licenses/MIT
-[license-badge]: https://img.shields.io/badge/License-MIT-blue.svg
+## Overview
 
-A Hardhat-based template for developing Solidity smart contracts, with sensible defaults.
+- [NFTGuessr](http://nftguessr.com)
+- [Medium] (https://medium.com/@jeremcombe/nftguessr-6dcfde3621ac)
 
-- [Hardhat](https://github.com/nomiclabs/hardhat): compile, run and test smart contracts
-- [TypeChain](https://github.com/ethereum-ts/TypeChain): generate TypeScript bindings for smart contracts
-- [Ethers](https://github.com/ethers-io/ethers.js/): renowned Ethereum library and wallet implementation
-- [Solhint](https://github.com/protofire/solhint): code linter
-- [Solcover](https://github.com/sc-forks/solidity-coverage): code coverage
-- [Prettier Plugin Solidity](https://github.com/prettier-solidity/prettier-plugin-solidity): code formatter
+NFTGuessr is a game similar to GeoGuessr. The idea is to find the location of a Google Street View. This game operates
+on the EVM (Zama). Each location is associated with an NFT encrypted with FHE. To inquire if the found location is
+correct, it costs you 1 Zama (base fee). If you have found it, you win the NFT. Two options are available to you. Either
+you put the NFT back into play with your tax for one round. Or, you accumulate 3 NFTs to stake them, unlocking the right
+to create NFTs with GPS coordinates, including your tax for one round.
 
-## Getting Started
+## Contract Structure
 
-Click the [`Use this template`](https://github.com/zama-ai/fhevm-hardhat-template/generate) button at the top of the
-page to create a new repository with this repo as the initial state.
+### Libraries Used
 
-## Features
+- TFHE Library: External library for handling encrypted operations.
+- Counters Library: Provided by OpenZeppelin, used for managing token IDs.
 
-This template builds upon the frameworks and libraries mentioned above, so for details about their specific features,
-please consult their respective documentations.
+### Contract Inheritance
 
-For example, for Hardhat, you can refer to the [Hardhat Tutorial](https://hardhat.org/tutorial) and the
-[Hardhat Docs](https://hardhat.org/docs). You might be in particular interested in reading the
-[Testing Contracts](https://hardhat.org/tutorial/testing-contracts) section.
+- ERC721Enumerable: An extension of the ERC721 standard, allowing enumeration of all tokens.
 
-### Sensible Defaults
+### State Variables
 
-This template comes with sensible default configurations in the following files:
+#### Token Counters:
 
-```text
-├── .editorconfig
-├── .eslintignore
-├── .eslintrc.yml
-├── .gitignore
-├── .prettierignore
-├── .prettierrc.yml
-├── .solcover.js
-├── .solhint.json
-└── hardhat.config.ts
-```
+- `_tokenIdCounter`: Counter for generating unique token IDs.
 
-### VSCode Integration
+#### Base Token URI:
 
-This template is IDE agnostic, but for the best user experience, you may want to use it in VSCode alongside Nomic
-Foundation's [Solidity extension](https://marketplace.visualstudio.com/items?itemName=NomicFoundation.hardhat-solidity).
+- `_baseTokenURI`: Base URI for metadata of NFTs.
 
-### GitHub Actions
+#### Location Parameters:
 
-This template comes with GitHub Actions pre-configured. Your contracts will be linted and tested on every push and pull
-request made to the `main` branch.
+- `nbNftStake`: Number of NFTs required to stake.
+- `stakedNFTCount`: Total number of staked NFTs.
+- `resetNFTCount`: Total number of reset NFTs.
 
-Note though that to make this work, you must use your `INFURA_API_KEY` and your `MNEMONIC` as GitHub secrets.
+#### Structs:
 
-You can edit the CI script in [.github/workflows/ci.yml](./.github/workflows/ci.yml).
+- `NFTLocation`: Structure to store the location of an NFT.
+- `Location`: Structure to store location information with encrypted coordinates.
 
-## Usage
+#### Fees and Ownership:
 
-### Pre Requisites
+- `fees`: Fee required for NFT operations.
+- `owner`: Address of the contract owner.
 
-Install [docker](https://docs.docker.com/engine/install/)
+#### Mappings:
 
-Install [pnpm](https://pnpm.io/installation)
+- `locations`: Mapping to store NFT locations.
+- `locationsNonAccessible`: Mapping to store non-accessible locations during a reset.
+- Other mappings for tracking NFT creators, stake, reset, fees, and ownership.
 
-Before being able to run any command, you need to create a `.env` file and set a BIP-39 compatible mnemonic as an
-environment variable. You can follow the example in `.env.example`. If you don't already have a mnemonic, you can use
-this [website](https://iancoleman.io/bip39/) to generate one.
+#### Events:
 
-Then, proceed with installing dependencies:
+- `GpsCheckResult`: Event emitted when a user checks GPS coordinates against an NFT location.
+- `createNFT`: Event emitted when a new NFT is created.
+- `ResetNFT`: Event emitted when an NFT is reset.
 
-```sh
-pnpm install
-```
+#### Constructor:
 
-### Start fhevm
+- Initializes the contract with the name "GeoSpace" and symbol "GSP," sets the base token URI, and defines the contract
+  owner.
 
-Start a local fhevm docker container that inlcudes everything needed to deploy FHE encrypted smart contracts
+#### Modifiers:
 
-```sh
-# In one terminal, keep it opened
-# The node logs are printed
-pnpm fhevm:start
-```
+- `onlyOwner`: Modifier to restrict access to the owner only.
 
-To stop:
+#### Fallback Function:
 
-```sh
-pnpm fhevm:stop
-```
+- `receive`: Fallback function to receive Ether.
 
-### Compile
+## External Functions
 
-Compile the smart contracts with Hardhat:
+### Metadata and URI Functions
 
-```sh
-pnpm compile
-```
+- `_baseURI`: Internal function to return the base URI for metadata.
 
-### TypeChain
+### Ownership and Administrative Functions
 
-Compile the smart contracts and generate TypeChain bindings:
+- `changeOwner`: Change the owner of the contract.
+- `changeFees`: Change the fees required for NFT operations.
+- `changeNbNftStake`: Change the number of NFTs required to stake.
 
-```sh
-pnpm typechain
-```
+### Token Interaction Functions
 
-### List accounts
+- `transferNFT`: Transfer an NFT to another address.
+- `getTotalStakedNFTs`: Get the total number of staked NFTs.
 
-From the mnemonic in .env file, list all the derived Ethereum adresses:
+### Location and Token Information Functions
 
-```sh
-pnpm task:accounts
-```
+- `getNFTLocation`: Get the location of an NFT using decrypted coordinates.
+- `getAddressResetWithToken`: Get the address associated with the reset of an NFT.
+- `getAddressStakeWithToken`: Get the address associated with the staking of an NFT.
+- `getFee`: Get the fee associated with a user and an NFT.
+- `getOwnedNFTs`: Get an array of NFTs owned by a user.
+- `getNftCreationAndFeesByUser`: Get the creation IDs and fees of NFTs created by a user.
+- `getNFTsAndFeesByOwner`: Get the IDs and fees of NFTs owned by a user.
+- `getResetNFTsAndFeesByOwner`: Get the IDs and fees of NFTs reset by a user.
+- `getNFTsStakedByOwner`: Get the IDs of NFTs staked by a user.
+- `getNFTsResetByOwner`: Get the IDs of NFTs reset by a user.
+- `getTotalNft`: Get the total number of NFTs in existence.
+- `getNbStake`: Get the number of NFTs required to stake.
 
-### Get some native coins
+### GPS Check Functions
 
-In order to interact with the blockchain, one need some coins. This command will give coins to the first address derived
-from the mnemonic in .env file.
+- `checkGps`: Check GPS coordinates against a specified location's coordinates.
+- `isLocationValid`: Check if a location is valid.
 
-```sh
-pnpm fhevm:faucet
-```
+### NFT Stake and Reset Functions
 
-<br />
-<details>
-  <summary>To get the first derived address from mnemonic</summary>
-<br />
+- `stakeNFT`: Stake NFTs by the sender.
+- `unstakeNFT`: Unstake NFTs by the sender.
+- `resetNFT`: Reset one or more NFTs, putting them back into the game.
+- `cancelResetNFT`: Cancel the reset of one or more NFTs.
 
-```sh
-pnpm task:getEthereumAddress
-```
+### NFT Creation Functions
 
-</details>
-<br />
+- `createGpsOwner`: Create NFTs owned by the contract owner with given location data.
+- `createGpsOwnerNft`: Create NFTs owned by the sender with given location data.
 
-### Deploy
+## Internal Functions
 
-Deploy the ERC20 to local network:
+- `mint`: Internal function to mint NFTs with location data and associated fees.
+- `removeElement`: Internal function to remove an element from an array.
+- `contains`: Internal function to check if an element exists in an array.
+- `isOnPoint`: Internal function to check if given coordinates are within a location.
 
-```sh
-pnpm deploy:contracts
-```
+## Conclusion
 
-Notes: <br />
+The NftGuessr smart contract provides a flexible and secure platform for a location-based NFT guessing game. Users can
+create, stake, transfer, reset, and interact with NFTs using encrypted GPS coordinates. The contract ensures ownership,
+fee management, and location validation while emitting events to track key activities.
 
-<details>
-<summary>Error: cannot get the transaction for EncryptedERC20's previous deployment</summary>
-
-One can delete the local folder in deployments:
-
-```bash
-rm -r deployments/local/
-```
-
-</details>
-
-<details>
-<summary>Info: by default, the local network is used</summary>
-
-One can change the network, check [hardhat config file](./hardhat.config.ts).
-
-</details>
-<br />
-
-#### Mint
-
-Run the `mint` task on the local network:
-
-```sh
-pnpm task:mint --network local --mint 1000 --account alice
-```
-
-### Test
-
-Run the tests with Hardhat:
-
-```sh
-pnpm test
-```
-
-### Lint Solidity
-
-Lint the Solidity code:
-
-```sh
-pnpm lint:sol
-```
-
-### Lint TypeScript
-
-Lint the TypeScript code:
-
-```sh
-pnpm lint:ts
-```
-
-### Coverage
-
-Generate the code coverage report:
-
-```sh
-pnpm coverage
-```
-
-### Report Gas
-
-See the gas usage per unit test and average gas per method call:
-
-```sh
-REPORT_GAS=true pnpm test
-```
-
-### Clean
-
-Delete the smart contract artifacts, the coverage reports and the Hardhat cache:
-
-```sh
-pnpm clean
-```
-
-### Tasks
-
-#### Deploy EncryptedERC20
-
-Deploy a new instance of the EncryptedERC20 contract via a task:
-
-```sh
-pnpm task:deployERC20
-```
-
-## Tips
-
-### Syntax Highlighting
-
-If you use VSCode, you can get Solidity syntax highlighting with the
-[hardhat-solidity](https://marketplace.visualstudio.com/items?itemName=NomicFoundation.hardhat-solidity) extension.
-
-## Using GitPod
-
-[GitPod](https://www.gitpod.io/) is an open-source developer platform for remote development.
-
-To view the coverage report generated by `pnpm coverage`, just click `Go Live` from the status bar to turn the server
-on/off.
-
-## Local development with Docker
-
-Please check Evmos repository to be able to build FhEVM from sources.
-
-## License
-
-This project is licensed under MIT.
+It is important to note that the documentation provides an overview of the contract's functionality, and users should
+carefully review and test the contract before deploying it on the Ethereum blockchain.
