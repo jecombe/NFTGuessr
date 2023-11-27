@@ -7,9 +7,9 @@
 
 NFTGuessr is a game similar to GeoGuessr. The idea is to find the location of a Google Street View. This game operates
 on the EVM (Zama). Each location is associated with an NFT encrypted with FHE. To inquire if the found location is
-correct (if is within the 5km2 of the NFT location), it costs you 1 Zama (base fee). If you have found it, you win the
-NFT. Two options are available to you. Either you put the NFT back into play with your tax for one round. Or, you
-accumulate 3 NFTs to stake them, unlocking the right to create NFTs with GPS coordinates, including your tax for one
+correct (if is within the 5km2 radius of the NFT location), it costs you 1 Zama (base fee). If you have found it, you
+win the NFT. Two options are available to you. Either you put the NFT back into play with your tax for one round. Or,
+you accumulate 3 NFTs to stake them, unlocking the right to create NFTs with GPS coordinates, including your tax for one
 round.
 
 ## Contract Structure
@@ -108,7 +108,9 @@ round.
 
 ### GPS Check Functions
 
-- `checkGps`: Check GPS coordinates against a specified location's coordinates.
+- `checkGps`: Check GPS coordinates against a specified location's coordinates. This function checks if a request is
+  within a 5km² radius of the GPS location of the NFT. If yes, then a transfer is executed to send the NFT to the
+  msg.sender
 - `isLocationValid`: Check if a location is valid.
 
 ### NFT Stake and Reset Functions
@@ -135,6 +137,3 @@ round.
 The NftGuessr smart contract provides a flexible and secure platform for a location-based NFT guessing game. Users can
 create, stake, transfer, reset, and interact with NFTs using encrypted GPS coordinates. The contract ensures ownership,
 fee management, and location validation while emitting events to track key activities.
-
-It is important to note that the documentation provides an overview of the contract's functionality, and users should
-carefully review and test the contract before deploying it on the Ethereum blockchain.
