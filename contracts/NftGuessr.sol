@@ -138,7 +138,6 @@ contract NftGuessr is ERC721Enumerable {
 
         resetMapping(tokenId, previous);
         delete isStake[tokenId];
-
         _burn(tokenId);
     }
 
