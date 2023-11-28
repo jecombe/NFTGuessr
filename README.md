@@ -133,6 +133,7 @@ win the NFT. Two options are available to you:
 - `removeElement`: Internal function to remove an element from an array.
 - `contains`: Internal function to check if an element exists in an array.
 - `isOnPoint`: Internal function to check if given coordinates are within a location.
+- `resetMapping`: Internal function to reset mapping.
 
 ## Conclusion
 

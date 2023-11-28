@@ -123,15 +123,21 @@ contract NftGuessr is ERC721Enumerable {
         return userFees[user][id];
     }
 
+    //Function to reset mapping
+    function resetMapping(uint256 tokenId, address previous) internal {
+        delete userFees[previous][tokenId];
+        delete locations[tokenId];
+        delete previousOwner[tokenId];
+        delete creatorNft[previous];
+        delete tokenResetAddress[tokenId];
+    }
+
     // Function to burn (destroy) an NFT, only callable by the owner.
     function burnNFT(uint256 tokenId) public onlyOwner {
         address previous = previousOwner[tokenId];
 
-        delete userFees[previous][tokenId];
+        resetMapping(tokenId, previous);
         delete isStake[tokenId];
-        delete locations[tokenId];
-        delete previousOwner[tokenId];
-        delete creatorNft[previous];
 
         _burn(tokenId);
     }
@@ -380,10 +386,7 @@ contract NftGuessr is ERC721Enumerable {
             payable(previous).transfer(nftFees);
             locationsNonAccessible[_tokenId] = locations[_tokenId];
 
-            delete userFees[previous][_tokenId];
-            delete locations[_tokenId];
-            delete previousOwner[_tokenId];
-            delete creatorNft[previous];
+            resetMapping(_tokenId, previous);
 
             if (previous != address(this)) {
                 removeElement(resetNft[previous], _tokenId);
