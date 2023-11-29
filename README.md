@@ -11,8 +11,8 @@ correct (if is within the 5km2 radius of the NFT location), it costs you 1 Zama 
 win the NFT. Two options are available to you:
 
 - Either you put the NFT back into play with your tax for one round.
-- Or,you accumulate 3 NFTs to stake them, unlocking the right to create NFTs with GPS coordinates, including your tax
-  for one round.
+- Accumulate 3 NFTs to stake them, unlocking the right to create NFTs with GPS coordinates, including your tax for one
+  round.
 
 ## Contract Structure
 
