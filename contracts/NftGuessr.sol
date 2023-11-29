@@ -11,11 +11,10 @@ contract NftGuessr is ERC721Enumerable {
     using Counters for Counters.Counter;
     Counters.Counter private _tokenIdCounter;
 
-    string private _baseTokenURI;
+    string private _baseTokenURI; // Don't use actually
 
-    uint256 public nbNftStake = 3;
-    uint256 public stakedNFTCount = 0;
-    uint256 public resetNFTCount = 0;
+    uint256 public nbNftStake = 3; // Number minimum stake to access right creation NFTs
+    uint256 public stakedNFTCount = 0; // Counter all NFTs staked
 
     // Struct to store the location of an NFT.
     struct NFTLocation {
@@ -35,25 +34,25 @@ contract NftGuessr is ERC721Enumerable {
         euint32 westLon;
         euint32 lat;
         euint32 lng;
-        bool isValid;
+        bool isValid; // Variable to see if location existe on mapping locations (If false, then the location is present in mapping locationsNonAccessible)
     }
 
-    uint256 public fees = 1 ether;
-    address public owner;
+    uint256 public fees = 1 ether; // Fees base
+    address public owner; // Owner of contract
 
     // Mapping to store NFT locations and non-accessible locations.
     mapping(uint256 => Location) internal locations;
     mapping(uint256 => Location) internal locationsNonAccessible;
 
     // Mapping to track NFT creators / stake / reset and their fees.
-    mapping(address => uint256[]) public creatorNft;
-    mapping(address => mapping(uint256 => uint256)) public userFees;
-    mapping(uint256 => address) previousOwner;
-    mapping(address => uint256[]) public stakeNft;
-    mapping(uint256 => bool) public isStake;
-    mapping(uint256 => address) public tokenStakeAddress;
-    mapping(uint256 => address) public tokenResetAddress;
-    mapping(address => uint256[]) public resetNft;
+    mapping(address => uint256[]) public creatorNft; // To see all NFTsIDs back in game
+    mapping(address => mapping(uint256 => uint256)) public userFees; // To see all fees for nfts address user
+    mapping(uint256 => address) previousOwner; // This variable is used to indirectly determine if a user is the owner of the NFT.
+    mapping(address => uint256[]) public stakeNft; // To see all NFTsIDs stake
+    mapping(uint256 => bool) public isStake; // Boolean to check if tokenId is stake
+    mapping(uint256 => address) public tokenStakeAddress; // see address user NFT stake with ID
+    mapping(uint256 => address) public tokenResetAddress; //  see address user NFT back in game with ID
+    mapping(address => uint256[]) public resetNft; // To see all NFTsIDs back in game
 
     // Event emitted when a user checks the GPS coordinates against an NFT location.
     event GpsCheckResult(address indexed user, bool result, uint256 tokenId);
@@ -167,16 +166,8 @@ contract NftGuessr is ERC721Enumerable {
     }
 
     // Function to get the IDs and fees of NFTs owned by a user.
-    function getNFTsAndFeesByOwner(address user) public view returns (uint256[] memory, uint256[] memory) {
-        uint256[] memory ownedNFTs = getOwnedNFTs(user);
-        uint256[] memory nftFees = new uint256[](ownedNFTs.length);
-
-        for (uint256 i = 0; i < ownedNFTs.length; i++) {
-            uint256 tokenId = ownedNFTs[i];
-            nftFees[i] = userFees[user][tokenId];
-        }
-
-        return (ownedNFTs, nftFees);
+    function getNFTByOwner(address user) public view returns (uint256[] memory) {
+        return getOwnedNFTs(user);
     }
 
     // Function to get the IDs and fees of NFTs reset by a user.
@@ -305,19 +296,23 @@ contract NftGuessr is ERC721Enumerable {
             TFHE.decrypt(TFHE.le(lng, location.eastLon)));
     }
 
+    //Function to see if location is valid
     function isLocationValid(uint256 locationId) public view returns (bool) {
         return locations[locationId].isValid;
     }
 
-    // Function to stake NFTs by the sender.
+    /**
+     * @dev Stake one or more NFTs, with tax.
+     * @param nftIndices An array of NFT IDs to be reset.
+     */
     function stakeNFT(uint256[] calldata nftIndices) public {
         require(nftIndices.length > 0, "No NFTs to stake");
 
         for (uint256 i = 0; i < nftIndices.length; i++) {
             uint256 nftId = nftIndices[i];
 
-            require(ownerOf(nftId) == msg.sender);
-            require(!contains(stakeNft[msg.sender], nftId));
+            require(ownerOf(nftId) == msg.sender, "you are not the owner");
+            require(!contains(stakeNft[msg.sender], nftId), "NFT is already stake, please unstake before");
 
             stakeNft[msg.sender].push(nftId);
             isStake[nftId] = true;
@@ -327,14 +322,17 @@ contract NftGuessr is ERC721Enumerable {
         }
     }
 
-    // Function to unstake NFTs by the sender.
+    /**
+     * @dev Unstake one or more NFTs, delete tax.
+     * @param nftIndices An array of NFT IDs to be reset.
+     */
     function unstakeNFT(uint256[] calldata nftIndices) public {
         require(nftIndices.length > 0, "No NFTs to unstake");
 
         for (uint256 i = 0; i < nftIndices.length; i++) {
             uint256 nftId = nftIndices[i];
 
-            require(contains(stakeNft[msg.sender], nftId));
+            require(contains(stakeNft[msg.sender], nftId), "NFT is stake, please unstake");
 
             removeElement(stakeNft[msg.sender], nftId);
             stakedNFTCount--;
@@ -360,22 +358,25 @@ contract NftGuessr is ERC721Enumerable {
             msg.value >= fees,
             string(abi.encodePacked("Insufficient fees. A minimum of ", fees, " ZAMA is required."))
         );
+        // Convert bytes to euint32
         euint32 lat = TFHE.asEuint32(userLatitude);
         euint32 lng = TFHE.asEuint32(userLongitude);
 
         bool result = false;
         uint256 totalSupply = totalSupply();
 
-        require(_tokenId <= totalSupply);
+        require(_tokenId <= totalSupply, "Your token id is invalid");
         require(isLocationValid(_tokenId), "Location does not exist");
 
         Location memory location = locations[_tokenId];
 
         if (isOnPoint(lat, lng, location)) {
-            require(ownerOf(_tokenId) != msg.sender);
-            require(!isStake[_tokenId]);
+            require(ownerOf(_tokenId) != msg.sender, "you are the owner");
+            require(!isStake[_tokenId], "NFT is stake");
+
             address previous = previousOwner[_tokenId];
-            require(previous != msg.sender);
+
+            require(previous != msg.sender, "you are the owner");
 
             uint256 nftFees = userFees[previous][_tokenId];
             uint256 totalTax = fees + nftFees;
@@ -383,16 +384,16 @@ contract NftGuessr is ERC721Enumerable {
             require(msg.value >= totalTax, "Insufficient funds to pay NFT tax");
 
             payable(previous).transfer(nftFees);
-            locationsNonAccessible[_tokenId] = locations[_tokenId];
+            locationsNonAccessible[_tokenId] = locations[_tokenId]; // This prevents a location from being present when it belongs to a user.
 
-            resetMapping(_tokenId, previous);
+            resetMapping(_tokenId, previous); // Reset data with delete
 
             if (previous != address(this)) {
                 removeElement(resetNft[previous], _tokenId);
             }
-            previousOwner[_tokenId] = msg.sender;
+            previousOwner[_tokenId] = msg.sender; // Allows recording the new owner for the reset (NFTs back in game).
             result = true;
-            _transfer(ownerOf(_tokenId), msg.sender, _tokenId);
+            _transfer(ownerOf(_tokenId), msg.sender, _tokenId); //Transfer nft to winner
         }
         emit GpsCheckResult(msg.sender, result, _tokenId);
         return result;
@@ -410,19 +411,19 @@ contract NftGuessr is ERC721Enumerable {
         for (uint256 i = 0; i < tokenIds.length; i++) {
             uint256 tokenId = tokenIds[i];
             uint256 tax = taxes[i];
+
             require(ownerOf(tokenId) == msg.sender, "You can only put your own NFT in the game");
             require(!contains(stakeNft[msg.sender], tokenId), "NFT is staked, please unstake before");
+            require(!contains(resetNft[msg.sender], tokenId), "NFT is already back in game");
 
-            if (!contains(resetNft[msg.sender], tokenId)) {
-                userFees[msg.sender][tokenId] = tax;
-                resetNft[msg.sender].push(tokenId);
-                previousOwner[tokenId] = ownerOf(tokenId);
-                locations[tokenId] = locationsNonAccessible[tokenId];
-                _transfer(msg.sender, address(this), tokenId);
-                tokenResetAddress[tokenId] = msg.sender;
-                delete locationsNonAccessible[tokenId];
-                emit ResetNFT(msg.sender, tokenId, true);
-            }
+            userFees[msg.sender][tokenId] = tax;
+            resetNft[msg.sender].push(tokenId);
+            previousOwner[tokenId] = ownerOf(tokenId);
+            locations[tokenId] = locationsNonAccessible[tokenId];
+            tokenResetAddress[tokenId] = msg.sender;
+            delete locationsNonAccessible[tokenId];
+            _transfer(msg.sender, address(this), tokenId);
+            emit ResetNFT(msg.sender, tokenId, true);
         }
     }
 
@@ -436,15 +437,15 @@ contract NftGuessr is ERC721Enumerable {
         for (uint256 i = 0; i < tokenIds.length; i++) {
             uint256 tokenId = tokenIds[i];
 
-            if (contains(resetNft[msg.sender], tokenId)) {
-                _transfer(address(this), msg.sender, tokenId);
-                locationsNonAccessible[tokenId] = locations[tokenId];
-                delete locations[tokenId];
-                delete tokenResetAddress[tokenId];
-                userFees[msg.sender][tokenId] = 0;
-                removeElement(resetNft[msg.sender], tokenId);
-                emit ResetNFT(msg.sender, tokenId, false);
-            }
+            require(contains(resetNft[msg.sender], tokenId), "NFT is not back in game");
+
+            locationsNonAccessible[tokenId] = locations[tokenId];
+            delete locations[tokenId];
+            delete tokenResetAddress[tokenId];
+            userFees[msg.sender][tokenId] = 0;
+            removeElement(resetNft[msg.sender], tokenId);
+            _transfer(address(this), msg.sender, tokenId);
+            emit ResetNFT(msg.sender, tokenId, false);
         }
     }
 }
