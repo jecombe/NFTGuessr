@@ -39,7 +39,6 @@ win the NFT. Two options are available to you:
 
 - `nbNftStake`: Number of NFTs required to stake.
 - `stakedNFTCount`: Total number of staked NFTs.
-- `resetNFTCount`: Total number of reset NFTs.
 
 #### Structs:
 
@@ -90,7 +89,6 @@ win the NFT. Two options are available to you:
 
 ### Token Interaction Functions
 
-- `transferNFT`: Transfer an NFT to another address.
 - `getTotalStakedNFTs`: Get the total number of staked NFTs.
 
 ### Location and Token Information Functions

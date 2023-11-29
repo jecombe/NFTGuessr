@@ -78,17 +78,6 @@ contract NftGuessr is ERC721Enumerable {
     // Fallback function to receive Ether.
     receive() external payable {}
 
-    // Function to transfer an NFT to another address.
-    function transferNFT(address to, uint256 tokenId) public {
-        require(!contains(stakeNft[msg.sender], tokenId), "Cannot transfer a staked NFT");
-        require(!contains(resetNft[msg.sender], tokenId), "Cannot transfer a reset NFT");
-        require(_isApprovedOrOwner(_msgSender(), tokenId), "Not authorized to transfer");
-
-        locationsNonAccessible[tokenId] = locations[tokenId];
-        delete locations[tokenId];
-        _transfer(_msgSender(), to, tokenId);
-    }
-
     // Function to get the total number of staked NFTs.
     function getTotalStakedNFTs() public view returns (uint256) {
         return stakedNFTCount;
