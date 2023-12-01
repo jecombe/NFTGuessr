@@ -213,25 +213,24 @@ contract NftGuessr is ERC721Enumerable {
     }
 
     // Function to create NFTs owned by the contract owner with given location data.
-    function createGpsOwner(bytes[] calldata data) public onlyOwner {
-        mint(data, address(this));
+    function createGpsOwner(bytes[] calldata data, uint256[] calldata feesData) public onlyOwner {
+        mint(data, address(this), feesData);
     }
 
     // Function to create NFTs owned by the sender with given location data.
-    function createGpsOwnerNft(bytes[] calldata data) public {
+    function createGpsOwnerNft(bytes[] calldata data, uint256[] calldata feesData) public {
         require(stakeNft[msg.sender].length >= 3, "The owner must stake 3 NFTs to create a new NFT");
-
-        mint(data, address(this));
+        mint(data, address(this), feesData);
     }
 
     // Internal function to mint NFTs with location data and associated fees.
-    function mint(bytes[] calldata data, address _owner) internal {
-        require(data.length >= 7, "Insufficient data provided");
+    function mint(bytes[] calldata data, address _owner, uint256[] calldata feesData) internal {
+        require(data.length >= 6, "Insufficient data provided");
 
-        uint256 arrayLength = data.length / 7;
+        uint256 arrayLength = data.length / 6;
 
         for (uint256 i = 0; i < arrayLength; i++) {
-            uint256 baseIndex = i * 7;
+            uint256 baseIndex = i * 6;
 
             _tokenIdCounter.increment();
             uint256 tokenId = _tokenIdCounter.current();
@@ -246,13 +245,12 @@ contract NftGuessr is ERC721Enumerable {
                 isValid: true
             });
             _mint(_owner, tokenId);
-            uint256 fee = TFHE.decrypt(TFHE.asEuint32(data[baseIndex + 6]));
-            userFees[msg.sender][tokenId] = fee;
+            userFees[msg.sender][tokenId] = feesData[i];
             isStake[tokenId] = false;
 
-            creatorNft[_owner].push(tokenId);
-            previousOwner[tokenId] = _owner;
-            emit createNFT(_owner, tokenId, fee);
+            creatorNft[msg.sender].push(tokenId);
+            previousOwner[tokenId] = msg.sender;
+            emit createNFT(_owner, tokenId, feesData[i]);
         }
     }
 
