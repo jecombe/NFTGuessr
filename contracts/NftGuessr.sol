@@ -52,6 +52,7 @@ contract NftGuessr is ERC721Enumerable {
     mapping(uint256 => bool) public isStake; // Boolean to check if tokenId is stake
     mapping(uint256 => address) public tokenStakeAddress; // see address user NFT stake with ID
     mapping(uint256 => address) public tokenResetAddress; //  see address user NFT back in game with ID
+    mapping(uint256 => address) public tokenCreationAddress; //  see address user NFT creation with ID
     mapping(address => uint256[]) public resetNft; // To see all NFTsIDs back in game
 
     // Event emitted when a user checks the GPS coordinates against an NFT location.
@@ -101,6 +102,10 @@ contract NftGuessr is ERC721Enumerable {
         return tokenResetAddress[_tokenId];
     }
 
+    function getAddressCreationWithToken(uint256 _tokenId) public view returns (address) {
+        return tokenCreationAddress[_tokenId];
+    }
+
     // Function to get the address associated with the staking of an NFT.
     function getAddressStakeWithToken(uint256 _tokenId) public view returns (address) {
         return tokenStakeAddress[_tokenId];
@@ -118,6 +123,7 @@ contract NftGuessr is ERC721Enumerable {
         delete previousOwner[tokenId];
         delete creatorNft[previous];
         delete tokenResetAddress[tokenId];
+        delete tokenCreationAddress[tokenId];
     }
 
     // Function to burn (destroy) an NFT, only callable by the owner.
@@ -249,6 +255,7 @@ contract NftGuessr is ERC721Enumerable {
             isStake[tokenId] = false;
 
             creatorNft[msg.sender].push(tokenId);
+            tokenCreationAddress[tokenId] = msg.sender;
             previousOwner[tokenId] = msg.sender;
             emit createNFT(_owner, tokenId, feesData[i]);
         }
