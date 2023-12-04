@@ -70,31 +70,52 @@ contract NftGuessr is ERC721Enumerable {
         owner = msg.sender;
     }
 
+    /************************ MODIFIER FUNCTIONS *************************/
+
     // Modifier to restrict access to the owner only.
     modifier onlyOwner() {
         require(msg.sender == owner);
         _;
     }
 
+    /************************ FALLBACK FUNCTIONS *************************/
+
     // Fallback function to receive Ether.
     receive() external payable {}
+
+    /************************ GETTER FUNCTIONS *************************/
+
+    // Function to get the number of NFTs required to stake.
+    function getNbStake() public view returns (uint256) {
+        return nbNftStake;
+    }
 
     // Function to get the total number of staked NFTs.
     function getTotalStakedNFTs() public view returns (uint256) {
         return stakedNFTCount;
     }
 
-    // Function to get the location of an NFT using decrypted coordinates.
+    // Function to get the location of an NFT for owner smart contract using decrypted coordinates.
     function getNFTLocation(uint256 tokenId) public view onlyOwner returns (NFTLocation memory) {
-        Location memory location = locations[tokenId];
-        uint32 northLat = TFHE.decrypt(location.northLat);
-        uint32 southLat = TFHE.decrypt(location.southLat);
-        uint32 eastLon = TFHE.decrypt(location.eastLon);
-        uint32 westLon = TFHE.decrypt(location.westLon);
-        uint lat = TFHE.decrypt(location.lat);
-        uint lng = TFHE.decrypt(location.lng);
-        NFTLocation memory nftLocation = NFTLocation(northLat, southLat, eastLon, westLon, lat, lng);
-        return nftLocation;
+        if (isLocationValid(tokenId)) {
+            return getLocation(locations[tokenId]);
+        }
+        return getLocation(locationsNonAccessible[tokenId]);
+    }
+
+    // Function to get the location of an NFT for owner using decrypted coordinates.
+    function getNFTLocationForOwner(uint256 tokenId) public view returns (NFTLocation memory) {
+        address stakeAddr = getAddressStakeWithToken(tokenId);
+        address resetAddr = getAddressResetWithToken(tokenId);
+        address creaAddr = getAddressCreationWithToken(tokenId);
+
+        if (ownerOf(tokenId) == msg.sender) {
+            return getLocation(locationsNonAccessible[tokenId]);
+        } else if (stakeAddr == msg.sender) {
+            return getLocation(locationsNonAccessible[tokenId]);
+        } else if (resetAddr == msg.sender || creaAddr == msg.sender) {
+            return getLocation(locations[tokenId]);
+        } else revert("Not Owner");
     }
 
     // Function to get the address associated with the reset of an NFT.
@@ -114,25 +135,6 @@ contract NftGuessr is ERC721Enumerable {
     // Function to get the fee associated with a user and an NFT.
     function getFee(address user, uint256 id) external view returns (uint256) {
         return userFees[user][id];
-    }
-
-    //Function to reset mapping
-    function resetMapping(uint256 tokenId, address previous) internal {
-        delete userFees[previous][tokenId];
-        delete locations[tokenId];
-        delete previousOwner[tokenId];
-        delete creatorNft[previous];
-        delete tokenResetAddress[tokenId];
-        delete tokenCreationAddress[tokenId];
-    }
-
-    // Function to burn (destroy) an NFT, only callable by the owner.
-    function burnNFT(uint256 tokenId) public onlyOwner {
-        address previous = previousOwner[tokenId];
-
-        resetMapping(tokenId, previous);
-        delete isStake[tokenId];
-        _burn(tokenId);
     }
 
     // Function to get an array of NFTs owned by a user.
@@ -193,14 +195,11 @@ contract NftGuessr is ERC721Enumerable {
         return totalSupply();
     }
 
+    /************************ CHANGER FUNCTIONS *************************/
+
     // Function to change the fees required for NFT operations.
     function changeFees(uint256 _fees) public onlyOwner {
         fees = _fees * 1 ether;
-    }
-
-    // Function to get the number of NFTs required to stake.
-    function getNbStake() public view returns (uint256) {
-        return nbNftStake;
     }
 
     // Function to change the number of NFTs required to stake.
@@ -213,20 +212,48 @@ contract NftGuessr is ERC721Enumerable {
         owner = _newOwner;
     }
 
+    /************************ INTERNAL FUNCTIONS *************************/
+
     // Internal function to return the base URI for metadata.
     function _baseURI() internal view virtual override(ERC721) returns (string memory) {
         return _baseTokenURI;
     }
 
-    // Function to create NFTs owned by the contract owner with given location data.
-    function createGpsOwner(bytes[] calldata data, uint256[] calldata feesData) public onlyOwner {
-        mint(data, address(this), feesData);
+    // Function internal to get strcture result get Location decrypt
+    function getLocation(Location memory _location) internal view returns (NFTLocation memory) {
+        uint32 northLat = TFHE.decrypt(_location.northLat);
+        uint32 southLat = TFHE.decrypt(_location.southLat);
+        uint32 eastLon = TFHE.decrypt(_location.eastLon);
+        uint32 westLon = TFHE.decrypt(_location.westLon);
+        uint lat = TFHE.decrypt(_location.lat);
+        uint lng = TFHE.decrypt(_location.lng);
+        NFTLocation memory nftLocation = NFTLocation(northLat, southLat, eastLon, westLon, lat, lng);
+        return nftLocation;
     }
 
-    // Function to create NFTs owned by the sender with given location data.
-    function createGpsOwnerNft(bytes[] calldata data, uint256[] calldata feesData) public {
-        require(stakeNft[msg.sender].length >= 3, "The owner must stake 3 NFTs to create a new NFT");
-        mint(data, address(this), feesData);
+    // Function internal to check if location does exist for creation
+    function isLocationAlreadyUsed(Location memory newLocation) internal view returns (bool) {
+        for (uint256 i = 1; i <= getTotalNft(); i++) {
+            if (isLocationValid(i)) {
+                Location memory existingLocation = locations[i];
+                if (
+                    TFHE.decrypt(TFHE.eq(newLocation.lat, existingLocation.lat)) &&
+                    TFHE.decrypt(TFHE.eq(newLocation.lng, existingLocation.lng))
+                ) {
+                    return true; // Location is already used
+                }
+            } else {
+                Location memory existingLocation = locationsNonAccessible[i];
+
+                if (
+                    TFHE.decrypt(TFHE.eq(newLocation.lat, existingLocation.lat)) &&
+                    TFHE.decrypt(TFHE.eq(newLocation.lng, existingLocation.lng))
+                ) {
+                    return true; // Location is already used
+                }
+            }
+        }
+        return false;
     }
 
     // Internal function to mint NFTs with location data and associated fees.
@@ -241,7 +268,7 @@ contract NftGuessr is ERC721Enumerable {
             _tokenIdCounter.increment();
             uint256 tokenId = _tokenIdCounter.current();
 
-            locations[tokenId] = Location({
+            Location memory loca = Location({
                 northLat: TFHE.asEuint32(data[baseIndex]),
                 southLat: TFHE.asEuint32(data[baseIndex + 1]),
                 eastLon: TFHE.asEuint32(data[baseIndex + 2]),
@@ -250,6 +277,10 @@ contract NftGuessr is ERC721Enumerable {
                 lng: TFHE.asEuint32(data[baseIndex + 5]),
                 isValid: true
             });
+
+            require(!isLocationAlreadyUsed(loca), "Location exist");
+
+            locations[tokenId] = loca;
             _mint(_owner, tokenId);
             userFees[msg.sender][tokenId] = feesData[i];
             isStake[tokenId] = false;
@@ -259,6 +290,18 @@ contract NftGuessr is ERC721Enumerable {
             previousOwner[tokenId] = msg.sender;
             emit createNFT(_owner, tokenId, feesData[i]);
         }
+    }
+
+    /************************ INTERNAL FUNCTIONS UTILES *************************/
+
+    //Function to reset mapping
+    function resetMapping(uint256 tokenId, address previous) internal {
+        delete userFees[previous][tokenId];
+        delete locations[tokenId];
+        delete previousOwner[tokenId];
+        delete creatorNft[previous];
+        delete tokenResetAddress[tokenId];
+        delete tokenCreationAddress[tokenId];
     }
 
     // Internal function to remove an element from an array.
@@ -290,14 +333,44 @@ contract NftGuessr is ERC721Enumerable {
             TFHE.decrypt(TFHE.le(lng, location.eastLon)));
     }
 
+    // Function to burn (destroy) an NFT, only callable by the owner.
+    function burnNFT(uint256 tokenId) public onlyOwner {
+        address previous = previousOwner[tokenId];
+
+        resetMapping(tokenId, previous);
+        delete isStake[tokenId];
+        _burn(tokenId);
+    }
+
     //Function to see if location is valid
     function isLocationValid(uint256 locationId) public view returns (bool) {
         return locations[locationId].isValid;
     }
 
+    /************************ GAMING FUNCTIONS *************************/
+
+    /**
+     * @dev createGPS one or more NFTs, with tax just for owner smart contract.
+     * @param data An array of NFT GPS coordinates to be create.
+     * @param feesData An array of fees to be create corresponding of array data.
+     */
+    function createGpsOwner(bytes[] calldata data, uint256[] calldata feesData) public onlyOwner {
+        mint(data, address(this), feesData);
+    }
+
+    /**
+     * @dev createGPS one or more NFTs, with tax just for owner nft.
+     * @param data An array of NFT GPS coordinates to be create.
+     * @param feesData An array of fees to be create corresponding of array data.
+     */
+    function createGpsOwnerNft(bytes[] calldata data, uint256[] calldata feesData) public {
+        require(stakeNft[msg.sender].length >= 3, "The owner must stake 3 NFTs to create a new NFT");
+        mint(data, address(this), feesData);
+    }
+
     /**
      * @dev Stake one or more NFTs, with tax.
-     * @param nftIndices An array of NFT IDs to be reset.
+     * @param nftIndices An array of NFT IDs to be stake.
      */
     function stakeNFT(uint256[] calldata nftIndices) public {
         require(nftIndices.length > 0, "No NFTs to stake");
@@ -318,7 +391,7 @@ contract NftGuessr is ERC721Enumerable {
 
     /**
      * @dev Unstake one or more NFTs, delete tax.
-     * @param nftIndices An array of NFT IDs to be reset.
+     * @param nftIndices An array of NFT IDs to be unstake.
      */
     function unstakeNFT(uint256[] calldata nftIndices) public {
         require(nftIndices.length > 0, "No NFTs to unstake");

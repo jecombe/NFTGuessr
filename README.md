@@ -132,6 +132,8 @@ win the NFT. Two options are available to you:
 - `contains`: Internal function to check if an element exists in an array.
 - `isOnPoint`: Internal function to check if given coordinates are within a location.
 - `resetMapping`: Internal function to reset mapping.
+- `getNFTLocationForOwner`: Internal function to decrypt GPS point just for owner of nft.
+- `getLocation` Internal function to getLocation with struct NFTLocation.
 
 ## Conclusion
 
