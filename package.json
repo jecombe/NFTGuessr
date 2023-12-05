@@ -64,6 +64,7 @@
     "access": "public"
   },
   "scripts": {
+    "get-abi": "node ./scripts/getAbi.js",
     "clean": "rimraf ./artifacts ./cache ./coverage ./types ./coverage.json && pnpm typechain",
     "compile": "cross-env TS_NODE_TRANSPILE_ONLY=true hardhat compile",
     "coverage": "hardhat coverage --solcoverjs ./.solcover.js --temp artifacts --testfiles \"test/**/*.ts\" && pnpm typechain",

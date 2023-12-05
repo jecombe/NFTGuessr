@@ -20,6 +20,8 @@ win the NFT. Two options are available to you:
 
 - TFHE Library: External library for handling encrypted operations.
 - Counters Library: Provided by OpenZeppelin, used for managing token IDs.
+- Ownable Library: Provided by OpenZepplin, used for manage ownable of smart contract.
+- Safe Math: Provided by OppenZepplin, used for math.
 
 ### Contract Inheritance
 
@@ -48,7 +50,6 @@ win the NFT. Two options are available to you:
 #### Fees and Ownership:
 
 - `fees`: Fee required for NFT operations.
-- `owner`: Address of the contract owner.
 
 #### Mappings:
 
@@ -86,6 +87,7 @@ win the NFT. Two options are available to you:
 - `changeOwner`: Change the owner of the contract.
 - `changeFees`: Change the fees required for NFT operations.
 - `changeNbNftStake`: Change the number of NFTs required to stake.
+- `withdraw`: Withdraw token present on smart contract.
 
 ### Token Interaction Functions
 

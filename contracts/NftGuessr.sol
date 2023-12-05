@@ -6,9 +6,13 @@ pragma solidity ^0.8.19;
 import "fhevm/lib/TFHE.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
+import "@openzeppelin/contracts/utils/math/SafeMath.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
 
-contract NftGuessr is ERC721Enumerable {
+contract NftGuessr is ERC721Enumerable, Ownable {
     using Counters for Counters.Counter;
+    using SafeMath for uint256;
+
     Counters.Counter private _tokenIdCounter;
 
     string private _baseTokenURI; // Don't use actually
@@ -38,7 +42,6 @@ contract NftGuessr is ERC721Enumerable {
     }
 
     uint256 public fees = 1 ether; // Fees base
-    address public owner; // Owner of contract
 
     // Mapping to store NFT locations and non-accessible locations.
     mapping(uint256 => Location) internal locations;
@@ -67,15 +70,20 @@ contract NftGuessr is ERC721Enumerable {
     // Contract constructor initializes base token URI and owner.
     constructor() ERC721("GeoSpace", "GSP") {
         _baseTokenURI = "";
-        owner = msg.sender;
     }
 
-    /************************ MODIFIER FUNCTIONS *************************/
+    /************************ OWNER FUNCTIONS *************************/
 
-    // Modifier to restrict access to the owner only.
-    modifier onlyOwner() {
-        require(msg.sender == owner);
-        _;
+    // Fonction pour permettre au propriétaire de récupérer les ETH
+    function withdraw() external onlyOwner {
+        // Récupérez le solde du contrat
+        uint256 contractBalance = address(this).balance;
+
+        // Vérifiez que le solde est supérieur à zéro
+
+        // Transférez les fonds au propriétaire
+        (bool success, ) = owner().call{ value: contractBalance }("");
+        require(success, "Transfer failed");
     }
 
     /************************ FALLBACK FUNCTIONS *************************/
@@ -86,17 +94,17 @@ contract NftGuessr is ERC721Enumerable {
     /************************ GETTER FUNCTIONS *************************/
 
     // Function to get the number of NFTs required to stake.
-    function getNbStake() public view returns (uint256) {
+    function getNbStake() external view returns (uint256) {
         return nbNftStake;
     }
 
     // Function to get the total number of staked NFTs.
-    function getTotalStakedNFTs() public view returns (uint256) {
+    function getTotalStakedNFTs() external view returns (uint256) {
         return stakedNFTCount;
     }
 
     // Function to get the location of an NFT for owner smart contract using decrypted coordinates.
-    function getNFTLocation(uint256 tokenId) public view onlyOwner returns (NFTLocation memory) {
+    function getNFTLocation(uint256 tokenId) external view onlyOwner returns (NFTLocation memory) {
         if (isLocationValid(tokenId)) {
             return getLocation(locations[tokenId]);
         }
@@ -104,10 +112,10 @@ contract NftGuessr is ERC721Enumerable {
     }
 
     // Function to get the location of an NFT for owner using decrypted coordinates.
-    function getNFTLocationForOwner(uint256 tokenId) public view returns (NFTLocation memory) {
-        address stakeAddr = getAddressStakeWithToken(tokenId);
-        address resetAddr = getAddressResetWithToken(tokenId);
-        address creaAddr = getAddressCreationWithToken(tokenId);
+    function getNFTLocationForOwner(uint256 tokenId) external view returns (NFTLocation memory) {
+        address stakeAddr = getAddressStakeWithToken(tokenId); // Check if user is staker
+        address resetAddr = getAddressResetWithToken(tokenId); // Check if user is reset (back in game) nft
+        address creaAddr = getAddressCreationWithToken(tokenId); // Check if user is the creator
 
         if (ownerOf(tokenId) == msg.sender) {
             return getLocation(locationsNonAccessible[tokenId]);
@@ -138,7 +146,7 @@ contract NftGuessr is ERC721Enumerable {
     }
 
     // Function to get an array of NFTs owned by a user.
-    function getOwnedNFTs(address user) public view returns (uint256[] memory) {
+    function getOwnedNFTs(address user) external view returns (uint256[] memory) {
         uint256[] memory ownedNFTs = new uint256[](balanceOf(user));
 
         for (uint256 i = 0; i < balanceOf(user); i++) {
@@ -160,11 +168,6 @@ contract NftGuessr is ERC721Enumerable {
         }
 
         return (ids, feesNft);
-    }
-
-    // Function to get the IDs and fees of NFTs owned by a user.
-    function getNFTByOwner(address user) public view returns (uint256[] memory) {
-        return getOwnedNFTs(user);
     }
 
     // Function to get the IDs and fees of NFTs reset by a user.
@@ -198,18 +201,18 @@ contract NftGuessr is ERC721Enumerable {
     /************************ CHANGER FUNCTIONS *************************/
 
     // Function to change the fees required for NFT operations.
-    function changeFees(uint256 _fees) public onlyOwner {
-        fees = _fees * 1 ether;
+    function changeFees(uint256 _fees) external onlyOwner {
+        fees = _fees.mul(1 ether);
     }
 
     // Function to change the number of NFTs required to stake.
-    function changeNbNftStake(uint256 _nb) public onlyOwner {
+    function changeNbNftStake(uint256 _nb) external onlyOwner {
         nbNftStake = _nb;
     }
 
     // Function to change the owner of the contract.
-    function changeOwner(address _newOwner) public onlyOwner {
-        owner = _newOwner;
+    function changeOwner(address _newOwner) external onlyOwner {
+        transferOwnership(_newOwner);
     }
 
     /************************ INTERNAL FUNCTIONS *************************/
@@ -334,7 +337,7 @@ contract NftGuessr is ERC721Enumerable {
     }
 
     // Function to burn (destroy) an NFT, only callable by the owner.
-    function burnNFT(uint256 tokenId) public onlyOwner {
+    function burnNFT(uint256 tokenId) external onlyOwner {
         address previous = previousOwner[tokenId];
 
         resetMapping(tokenId, previous);
@@ -354,7 +357,7 @@ contract NftGuessr is ERC721Enumerable {
      * @param data An array of NFT GPS coordinates to be create.
      * @param feesData An array of fees to be create corresponding of array data.
      */
-    function createGpsOwner(bytes[] calldata data, uint256[] calldata feesData) public onlyOwner {
+    function createGpsOwner(bytes[] calldata data, uint256[] calldata feesData) external onlyOwner {
         mint(data, address(this), feesData);
     }
 
@@ -363,7 +366,7 @@ contract NftGuessr is ERC721Enumerable {
      * @param data An array of NFT GPS coordinates to be create.
      * @param feesData An array of fees to be create corresponding of array data.
      */
-    function createGpsOwnerNft(bytes[] calldata data, uint256[] calldata feesData) public {
+    function createGpsOwnerNft(bytes[] calldata data, uint256[] calldata feesData) external {
         require(stakeNft[msg.sender].length >= 3, "The owner must stake 3 NFTs to create a new NFT");
         mint(data, address(this), feesData);
     }
@@ -372,7 +375,7 @@ contract NftGuessr is ERC721Enumerable {
      * @dev Stake one or more NFTs, with tax.
      * @param nftIndices An array of NFT IDs to be stake.
      */
-    function stakeNFT(uint256[] calldata nftIndices) public {
+    function stakeNFT(uint256[] calldata nftIndices) external {
         require(nftIndices.length > 0, "No NFTs to stake");
 
         for (uint256 i = 0; i < nftIndices.length; i++) {
@@ -393,7 +396,7 @@ contract NftGuessr is ERC721Enumerable {
      * @dev Unstake one or more NFTs, delete tax.
      * @param nftIndices An array of NFT IDs to be unstake.
      */
-    function unstakeNFT(uint256[] calldata nftIndices) public {
+    function unstakeNFT(uint256[] calldata nftIndices) external {
         require(nftIndices.length > 0, "No NFTs to unstake");
 
         for (uint256 i = 0; i < nftIndices.length; i++) {
@@ -420,7 +423,7 @@ contract NftGuessr is ERC721Enumerable {
         bytes calldata userLatitude,
         bytes calldata userLongitude,
         uint256 _tokenId
-    ) public payable returns (bool) {
+    ) external payable returns (bool) {
         require(
             msg.value >= fees,
             string(abi.encodePacked("Insufficient fees. A minimum of ", fees, " ZAMA is required."))
@@ -471,7 +474,7 @@ contract NftGuessr is ERC721Enumerable {
      * @param tokenIds An array of NFT IDs to be reset.
      * @param taxes An array of corresponding taxes for each NFT to be reset.
      */
-    function resetNFT(uint256[] calldata tokenIds, uint256[] calldata taxes) public {
+    function resetNFT(uint256[] calldata tokenIds, uint256[] calldata taxes) external {
         require(tokenIds.length > 0, "No token IDs provided");
         require(tokenIds.length == taxes.length, "Invalid input lengths");
 
@@ -498,7 +501,7 @@ contract NftGuessr is ERC721Enumerable {
      * @dev Cancels the reset of one or more NFTs.
      * @param tokenIds An array of NFT IDs to cancel the reset for.
      */
-    function cancelResetNFT(uint256[] calldata tokenIds) public {
+    function cancelResetNFT(uint256[] calldata tokenIds) external {
         require(tokenIds.length > 0, "No token IDs provided");
 
         for (uint256 i = 0; i < tokenIds.length; i++) {
