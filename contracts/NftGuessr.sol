@@ -398,7 +398,7 @@ contract NftGuessr is ERC721Enumerable, Ownable {
         if (msg.value >= totalTax) {
             return 0; // Les frais sont suffisants
         } else {
-            return totalTax - msg.value; // Montant manquant
+            return totalTax.sub(msg.value); // Montant manquant
         }
     }
 
