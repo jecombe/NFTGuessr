@@ -70,7 +70,7 @@ win the NFT. Two options are available to you:
 
 #### Modifiers:
 
-- `onlyOwner`: Modifier to restrict access to the owner only.
+- `isAccess`: Modifier to restrict access 3 stake NFTs.
 
 #### Fallback Function:
 
@@ -135,7 +135,8 @@ win the NFT. Two options are available to you:
 - `isOnPoint`: Internal function to check if given coordinates are within a location.
 - `resetMapping`: Internal function to reset mapping.
 - `getNFTLocationForOwner`: Internal function to decrypt GPS point just for owner of nft.
-- `getLocation` Internal function to getLocation with struct NFTLocation.
+- `getLocation`: Internal function to getLocation with struct NFTLocation.
+- `isExist`: Internal function to check if location bewteen two.
 
 ## Conclusion
 

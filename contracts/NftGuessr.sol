@@ -1,6 +1,7 @@
 // @title NftGuessr - Smart contract for a location-based NFT guessing game.
 // @author [Jérémy Combe]
 // @notice This contract extends ERC721Enumerable for NFT functionality.
+// SPDX-License-Identifier: MIT
 
 pragma solidity ^0.8.19;
 import "./libraries/LibrariesNftGuessr.sol";
@@ -41,6 +42,14 @@ contract NftGuessr is ERC721Enumerable, Ownable {
     // Contract constructor initializes base token URI and owner.
     constructor() ERC721("GeoSpace", "GSP") {
         _baseTokenURI = "";
+    }
+
+    /************************ MODIFER FUNCTIONS *************************/
+
+    // Check if user have access
+    modifier isAccess() {
+        require(stakeNft[msg.sender].length >= 3, "The owner must stake 3 NFTs to create a new NFT");
+        _;
     }
 
     /************************ OWNER FUNCTIONS *************************/
@@ -102,6 +111,7 @@ contract NftGuessr is ERC721Enumerable, Ownable {
         return tokenResetAddress[_tokenId];
     }
 
+    // Function to get the address associated with the creation of an NFT.
     function getAddressCreationWithToken(uint256 _tokenId) public view returns (address) {
         return tokenCreationAddress[_tokenId];
     }
@@ -205,24 +215,21 @@ contract NftGuessr is ERC721Enumerable, Ownable {
         return nftLocation;
     }
 
+    // Function internal to check if latitude and longitude already exist between two location
+    function isExist(Location memory newLocation, Location memory readLocation) internal view returns (bool) {
+        return (TFHE.decrypt(TFHE.eq(newLocation.lat, readLocation.lat)) &&
+            TFHE.decrypt(TFHE.eq(newLocation.lng, readLocation.lng)));
+    }
+
     // Function internal to check if location does exist for creation
     function isLocationAlreadyUsed(Location memory newLocation) internal view returns (bool) {
         for (uint256 i = 1; i <= getTotalNft(); i++) {
             if (isLocationValid(i)) {
-                Location memory existingLocation = locations[i];
-                if (
-                    TFHE.decrypt(TFHE.eq(newLocation.lat, existingLocation.lat)) &&
-                    TFHE.decrypt(TFHE.eq(newLocation.lng, existingLocation.lng))
-                ) {
+                if (isExist(newLocation, locations[i])) {
                     return true; // Location is already used
                 }
             } else {
-                Location memory existingLocation = locationsNonAccessible[i];
-
-                if (
-                    TFHE.decrypt(TFHE.eq(newLocation.lat, existingLocation.lat)) &&
-                    TFHE.decrypt(TFHE.eq(newLocation.lng, existingLocation.lng))
-                ) {
+                if (isExist(newLocation, locationsNonAccessible[i])) {
                     return true; // Location is already used
                 }
             }
@@ -242,7 +249,7 @@ contract NftGuessr is ERC721Enumerable, Ownable {
             _tokenIdCounter.increment();
             uint256 tokenId = _tokenIdCounter.current();
 
-            Location memory loca = Location({
+            Location memory locate = Location({
                 northLat: TFHE.asEuint32(data[baseIndex]),
                 southLat: TFHE.asEuint32(data[baseIndex + 1]),
                 eastLon: TFHE.asEuint32(data[baseIndex + 2]),
@@ -252,9 +259,9 @@ contract NftGuessr is ERC721Enumerable, Ownable {
                 isValid: true
             });
 
-            require(!isLocationAlreadyUsed(loca), "Location exist");
+            require(!isLocationAlreadyUsed(locate), "Location exist");
 
-            locations[tokenId] = loca;
+            locations[tokenId] = locate;
             _mint(_owner, tokenId);
             userFees[msg.sender][tokenId] = feesData[i];
             isStake[tokenId] = false;
@@ -337,8 +344,7 @@ contract NftGuessr is ERC721Enumerable, Ownable {
      * @param data An array of NFT GPS coordinates to be create.
      * @param feesData An array of fees to be create corresponding of array data.
      */
-    function createGpsOwnerNft(bytes[] calldata data, uint256[] calldata feesData) external {
-        require(stakeNft[msg.sender].length >= 3, "The owner must stake 3 NFTs to create a new NFT");
+    function createGpsOwnerNft(bytes[] calldata data, uint256[] calldata feesData) external isAccess {
         mint(data, address(this), feesData);
     }
 
@@ -354,6 +360,7 @@ contract NftGuessr is ERC721Enumerable, Ownable {
 
             require(ownerOf(nftId) == msg.sender, "you are not the owner");
             require(!contains(stakeNft[msg.sender], nftId), "NFT is already stake, please unstake before");
+            require(!contains(creatorNft[msg.sender], nftId), "the creator cannot stake nft");
 
             stakeNft[msg.sender].push(nftId);
             isStake[nftId] = true;
@@ -372,7 +379,7 @@ contract NftGuessr is ERC721Enumerable, Ownable {
 
         for (uint256 i = 0; i < nftIndices.length; i++) {
             uint256 nftId = nftIndices[i];
-
+            require(!contains(creatorNft[msg.sender], nftId), "the creator cannot unstake nft");
             require(contains(stakeNft[msg.sender], nftId), "NFT is stake, please unstake");
 
             removeElement(stakeNft[msg.sender], nftId);
@@ -456,6 +463,7 @@ contract NftGuessr is ERC721Enumerable, Ownable {
             require(ownerOf(tokenId) == msg.sender, "You can only put your own NFT in the game");
             require(!contains(stakeNft[msg.sender], tokenId), "NFT is staked, please unstake before");
             require(!contains(resetNft[msg.sender], tokenId), "NFT is already back in game");
+            require(!contains(creatorNft[msg.sender], tokenId), "the creator cannot reset nft");
 
             userFees[msg.sender][tokenId] = tax;
             resetNft[msg.sender].push(tokenId);
@@ -479,6 +487,7 @@ contract NftGuessr is ERC721Enumerable, Ownable {
             uint256 tokenId = tokenIds[i];
 
             require(contains(resetNft[msg.sender], tokenId), "NFT is not back in game");
+            require(!contains(creatorNft[msg.sender], tokenId), "the creator cannot reset nft");
 
             locationsNonAccessible[tokenId] = locations[tokenId];
             delete locations[tokenId];
