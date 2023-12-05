@@ -137,6 +137,7 @@ win the NFT. Two options are available to you:
 - `getNFTLocationForOwner`: Internal function to decrypt GPS point just for owner of nft.
 - `getLocation`: Internal function to getLocation with struct NFTLocation.
 - `isExist`: Internal function to check if location bewteen two.
+- `checkFees`: Internal function to check if user has enough funds to pay NFT tax.
 
 ## Conclusion
 

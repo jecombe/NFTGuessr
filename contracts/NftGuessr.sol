@@ -390,6 +390,18 @@ contract NftGuessr is ERC721Enumerable, Ownable {
         }
     }
 
+    // Function internal to check if user has enough funds to pay NFT tax.
+    function checkFees(uint256 _tokenId, address previous) internal view returns (uint256) {
+        uint256 nftFees = userFees[previous][_tokenId];
+        uint256 totalTax = fees.add(nftFees);
+
+        if (msg.value >= totalTax) {
+            return 0; // Les frais sont suffisants
+        } else {
+            return totalTax - msg.value; // Montant manquant
+        }
+    }
+
     /**
      * @dev Checks GPS coordinates against a specified location's coordinates.
      * @param userLatitude The latitude of the user's location.
@@ -416,9 +428,7 @@ contract NftGuessr is ERC721Enumerable, Ownable {
         require(_tokenId <= totalSupply, "Your token id is invalid");
         require(isLocationValid(_tokenId), "Location does not exist");
 
-        Location memory location = locations[_tokenId];
-
-        if (isOnPoint(lat, lng, location)) {
+        if (isOnPoint(lat, lng, locations[_tokenId])) {
             require(ownerOf(_tokenId) != msg.sender, "you are the owner");
             require(!isStake[_tokenId], "NFT is stake");
 
@@ -426,12 +436,11 @@ contract NftGuessr is ERC721Enumerable, Ownable {
 
             require(previous != msg.sender, "you are the owner");
 
-            uint256 nftFees = userFees[previous][_tokenId];
-            uint256 totalTax = fees + nftFees;
+            uint256 missingFunds = checkFees(_tokenId, previousOwner[_tokenId]);
 
-            require(msg.value >= totalTax, "Insufficient funds to pay NFT tax");
+            require(missingFunds == 0, string(abi.encodePacked("Insufficient funds. Missing ", missingFunds, " wei")));
 
-            payable(previous).transfer(nftFees);
+            payable(previous).transfer(userFees[previous][_tokenId]);
             locationsNonAccessible[_tokenId] = locations[_tokenId]; // This prevents a location from being present when it belongs to a user.
 
             resetMapping(_tokenId, previous); // Reset data with delete
