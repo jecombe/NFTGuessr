@@ -3,50 +3,23 @@
 // @notice This contract extends ERC721Enumerable for NFT functionality.
 
 pragma solidity ^0.8.19;
-import "fhevm/lib/TFHE.sol";
-import "@openzeppelin/contracts/utils/Counters.sol";
-import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
-import "@openzeppelin/contracts/utils/math/SafeMath.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
+import "./libraries/LibrariesNftGuessr.sol";
+import "./structs/StructsNftGuessr.sol";
 
 contract NftGuessr is ERC721Enumerable, Ownable {
     using Counters for Counters.Counter;
     using SafeMath for uint256;
 
-    Counters.Counter private _tokenIdCounter;
-
+    Counters.Counter private _tokenIdCounter; // tokenCounter id NFT
     string private _baseTokenURI; // Don't use actually
 
     uint256 public nbNftStake = 3; // Number minimum stake to access right creation NFTs
     uint256 public stakedNFTCount = 0; // Counter all NFTs staked
-
-    // Struct to store the location of an NFT.
-    struct NFTLocation {
-        uint32 northLat;
-        uint32 southLat;
-        uint32 eastLon;
-        uint32 westLon;
-        uint lat;
-        uint lng;
-    }
-
-    // Struct to store location information with encrypted coordinates.
-    struct Location {
-        euint32 northLat;
-        euint32 southLat;
-        euint32 eastLon;
-        euint32 westLon;
-        euint32 lat;
-        euint32 lng;
-        bool isValid; // Variable to see if location existe on mapping locations (If false, then the location is present in mapping locationsNonAccessible)
-    }
-
     uint256 public fees = 1 ether; // Fees base
 
     // Mapping to store NFT locations and non-accessible locations.
     mapping(uint256 => Location) internal locations;
     mapping(uint256 => Location) internal locationsNonAccessible;
-
     // Mapping to track NFT creators / stake / reset and their fees.
     mapping(address => uint256[]) public creatorNft; // To see all NFTsIDs back in game
     mapping(address => mapping(uint256 => uint256)) public userFees; // To see all fees for nfts address user
@@ -60,10 +33,8 @@ contract NftGuessr is ERC721Enumerable, Ownable {
 
     // Event emitted when a user checks the GPS coordinates against an NFT location.
     event GpsCheckResult(address indexed user, bool result, uint256 tokenId);
-
     // Event emitted when a new NFT is created.
     event createNFT(address indexed user, uint256 tokenId, uint256 fee);
-
     // Event emitted when an NFT is reset.
     event ResetNFT(address indexed user, uint256 tokenId, bool isReset);
 
