@@ -1,4 +1,4 @@
-# NftGuessr - Smart Contract Documentation
+# NftGuessr Smart Contract
 
 ## Overview
 
@@ -14,132 +14,506 @@ win the NFT. Two options are available to you:
 - Accumulate 3 NFTs to stake them, unlocking the right to create NFTs with GPS coordinates, including your tax for one
   round.
 
-## Contract Structure
+### Author
 
-### Libraries Used
+[Jérémy Combe]
 
-- TFHE Library: External library for handling encrypted operations.
-- Counters Library: Provided by OpenZeppelin, used for managing token IDs.
-- Ownable Library: Provided by OpenZepplin, used for manage ownable of smart contract.
-- Safe Math: Provided by OppenZepplin, used for math.
+### License
 
-### Contract Inheritance
+This contract is licensed under the MIT License.
 
-- ERC721Enumerable: An extension of the ERC721 standard, allowing enumeration of all tokens.
+## Table of Contents
 
-### State Variables
+0. [Libraries](#libraries)
+1. [Structs](#structs)
+2. [Modifiers](#modifiers)
+3. [Owner Functions](#owner-functions)
+4. [Fallback Functions](#fallback-functions)
+5. [Getter Functions](#getter-functions)
+6. [Changer Functions](#changer-functions)
+7. [Internal Functions](#internal-functions)
+8. [Internal Functions Utiles](#internal-functions-utiles)
+9. [Gaming Functions](#gaming-functions)
+10. [Conclusion](#conclusion)
 
-#### Token Counters:
+## 0. Libraries <a name="libraries"></a>
 
-- `_tokenIdCounter`: Counter for generating unique token IDs.
+### 0.1 TFHE
 
-#### Base Token URI:
+External library for handling encrypted operations
 
-- `_baseTokenURI`: Base URI for metadata of NFTs.
+```solidity
+import "fhevm/lib/TFHE.sol";
+```
 
-#### Location Parameters:
+### 0.2 Counter
 
-- `nbNftStake`: Number of NFTs required to stake.
-- `stakedNFTCount`: Total number of staked NFTs.
+Provided by OpenZeppelin, used for managing token IDs.
 
-#### Structs:
+```solidity
+import "@openzeppelin/contracts/utils/Counters.sol"; import
 
-- `NFTLocation`: Structure to store the location of an NFT.
-- `Location`: Structure to store location information with encrypted coordinates.
+```
 
-#### Fees and Ownership:
+### 0.3 Ownable
 
-- `fees`: Fee required for NFT operations.
+Provided by OpenZepplin, used for manage ownable of smart contract.
 
-#### Mappings:
+```solidity
+import "@openzeppelin/contracts/access/Ownable.sol";
+```
 
-- `locations`: Mapping to store NFT locations.
-- `locationsNonAccessible`: Mapping to store non-accessible locations during a reset.
-- Other mappings for tracking NFT creators, stake, reset, fees, and ownership.
+### 0.4 Safe Math
 
-#### Events:
+Provided by OppenZepplin, used for math.
 
-- `GpsCheckResult`: Event emitted when a user checks GPS coordinates against an NFT location.
-- `createNFT`: Event emitted when a new NFT is created.
-- `ResetNFT`: Event emitted when an NFT is reset.
+```solidity
+import "@openzeppelin/contracts/utils/math/SafeMath.sol";
+```
 
-#### Constructor:
+### 0.5 ERC721Enumerable
 
-- Initializes the contract with the name "GeoSpace" and symbol "GSP," sets the base token URI, and defines the contract
-  owner.
+An extension of the ERC721 standard, allowing enumeration of all tokens.
 
-#### Modifiers:
+```solidity
+"@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol"; import
 
-- `isAccess`: Modifier to restrict access 3 stake NFTs.
+```
 
-#### Fallback Function:
+## 1. Structs <a name="structs"></a>
 
-- `receive`: Fallback function to receive Ether.
+### 1.1 Location
 
-## External Functions
+Represents the geographical coordinates of an NFT location.
 
-### Metadata and URI Functions
+```solidity
+struct Location {
+  uint32 northLat;
+  uint32 southLat;
+  uint32 eastLon;
+  uint32 westLon;
+  uint32 lat;
+  uint32 lng;
+  bool isValid;
+}
+```
 
-- `_baseURI`: Internal function to return the base URI for metadata.
+### 1.2 NFTLocation`
 
-### Ownership and Administrative Functions
+Represents the decrypted geographical coordinates of an NFT location.
 
-- `changeOwner`: Change the owner of the contract.
-- `changeFees`: Change the fees required for NFT operations.
-- `changeNbNftStake`: Change the number of NFTs required to stake.
-- `withdraw`: Withdraw token present on smart contract.
+```solidity
+struct NFTLocation {
+  uint32 northLat;
+  uint32 southLat;
+  uint32 eastLon;
+  uint32 westLon;
+  uint lat;
+  uint lng;
+}
+```
 
-### Token Interaction Functions
+## 2. Modifiers <a name="modifiers"></a>
 
-- `getTotalStakedNFTs`: Get the total number of staked NFTs.
+### 2.1 isAccess
 
-### Location and Token Information Functions
+Checks if the user has access to certain functionalities.
 
-- `getNFTLocation`: Get the location of an NFT using decrypted coordinates.
-- `getAddressResetWithToken`: Get the address associated with the reset of an NFT.
-- `getAddressStakeWithToken`: Get the address associated with the staking of an NFT.
-- `getFee`: Get the fee associated with a user and an NFT.
-- `getOwnedNFTs`: Get an array of NFTs owned by a user.
-- `getNftCreationAndFeesByUser`: Get the creation IDs and fees of NFTs created by a user.
-- `getNFTsAndFeesByOwner`: Get the IDs and fees of NFTs owned by a user.
-- `getResetNFTsAndFeesByOwner`: Get the IDs and fees of NFTs reset by a user.
-- `getNFTsStakedByOwner`: Get the IDs of NFTs staked by a user.
-- `getNFTsResetByOwner`: Get the IDs of NFTs reset by a user.
-- `getTotalNft`: Get the total number of NFTs in existence.
-- `getNbStake`: Get the number of NFTs required to stake.
+```solidity
+modifier isAccess() {
+    require(stakeNft[msg.sender].length >= 3, "The owner must stake 3 NFTs to create a new NFT");
+    _;
+}
 
-### GPS Check Functions
+```
 
-- `checkGps`: Check GPS coordinates against a specified location's coordinates. This function checks if a request is
-  within a 5km² radius of the GPS location of the NFT. If yes, then a transfer is executed to send the NFT to the
-  msg.sender
-- `isLocationValid`: Check if a location is valid.
+## 3. Owner Functions <a name="owner-functions"></a>
 
-### NFT Stake and Reset Functions
+### 3.1 withdraw
 
-- `stakeNFT`: Stake NFTs by the sender.
-- `unstakeNFT`: Unstake NFTs by the sender.
-- `resetNFT`: Reset one or more NFTs, putting them back into the game.
-- `cancelResetNFT`: Cancel the reset of one or more NFTs.
+Allows the owner to withdraw Ether from the contract.
 
-### NFT Creation Functions
+```solidity
+function withdraw() external onlyOwner {
+  // ... (Withdraw functionality)
+}
+```
 
-- `createGpsOwner`: Create NFTs owned by the contract owner with given location data.
-- `createGpsOwnerNft`: Create NFTs owned by the sender with given location data.
+## 4. Fallback Functions <a name="fallback-functions"></a>
 
-## Internal Functions
+### 4.1 receive
 
-- `mint`: Internal function to mint NFTs with location data and associated fees.
-- `removeElement`: Internal function to remove an element from an array.
-- `contains`: Internal function to check if an element exists in an array.
-- `isOnPoint`: Internal function to check if given coordinates are within a location.
-- `resetMapping`: Internal function to reset mapping.
-- `getNFTLocationForOwner`: Internal function to decrypt GPS point just for owner of nft.
-- `getLocation`: Internal function to getLocation with struct NFTLocation.
-- `isExist`: Internal function to check if location bewteen two.
-- `checkFees`: Internal function to check if user has enough funds to pay NFT tax.
+Fallback function to receive Ether.
 
-## Conclusion
+```solidity
+receive() external payable {}
+```
+
+## 5. Getter Functions <a name="getter-functions"></a>
+
+### 5.1 getNbStake
+
+Gets the number of NFTs required to stake.
+
+```solidity
+function getNbStake() external view returns (uint256) {
+  // ... (Get number of NFTs required to stake)
+}
+```
+
+### 5.2 getTotalStakedNFTs
+
+Gets the total number of staked NFTs.
+
+```solidity
+function getTotalStakedNFTs() external view returns (uint256) {
+  // ... (Get total number of staked NFTs)
+}
+```
+
+### 5.3 getNFTLocation
+
+Gets the location of an NFT for the contract owner.
+
+```solidity
+function getNFTLocation(uint256 tokenId) external view onlyOwner returns (NFTLocation memory) {
+  // ... (Get NFT location for owner)
+}
+```
+
+### 5.4 getNFTLocationForOwner
+
+Gets the location of an NFT for the owner.
+
+```solidity
+function getNFTLocationForOwner(uint256 tokenId) external view returns (NFTLocation memory) {
+  // ... (Get NFT location for owner)
+}
+```
+
+### 5.5 getAddressResetWithToken
+
+Gets the address associated with the reset of an NFT.
+
+```solidity
+function getAddressResetWithToken(uint256 _tokenId) public view returns (address) {
+  // ... (Get address associated with NFT reset)
+}
+```
+
+### 5.6 getAddressCreationWithToken
+
+Gets the address associated with the creation of an NFT.
+
+```solidity
+function getAddressCreationWithToken(uint256 _tokenId) public view returns (address) {
+  // ... (Get address associated with NFT creation)
+}
+```
+
+### 5.7 getAddressStakeWithToken
+
+Gets the address associated with the staking of an NFT.
+
+```solidity
+function getAddressStakeWithToken(uint256 _tokenId) public view returns (address) {
+  // ... (Get address associated with NFT staking)
+}
+```
+
+### 5.8 getFee
+
+Gets the fee associated with a user and an NFT.
+
+```solidity
+function getFee(address user, uint256 id) external view returns (uint256) {
+  // ... (Get fee associated with user and NFT)
+}
+```
+
+### 5.9 getOwnedNFTs
+
+Gets an array of NFTs owned by a user.
+
+```solidity
+function getOwnedNFTs(address user) external view returns (uint256[] memory) {
+  // ... (Get array of owned NFTs)
+}
+```
+
+### 5.10 getNftCreationAndFeesByUser
+
+Gets the creation IDs and fees of NFTs created by a user.
+
+```solidity
+function getNftCreationAndFeesByUser(address user) public view returns (uint256[] memory, uint256[] memory) {
+  // ... (Get NFT creation IDs and fees by user)
+}
+```
+
+### 5.11 getResetNFTsAndFeesByOwner
+
+Gets the IDs and fees of NFTs reset by a user.
+
+```solidity
+function getResetNFTsAndFeesByOwner(address user) public view returns (uint256[] memory, uint256[] memory) {
+  // ... (Get reset NFT IDs and fees by owner)
+}
+```
+
+### 5.12 getNFTsStakedByOwner
+
+Gets the IDs of NFTs staked by a user.
+
+```solidity
+function getNFTsStakedByOwner(address _owner) public view returns (uint256[] memory) {
+  // ... (Get NFT IDs staked by owner)
+}
+```
+
+### 5.13 getNFTsResetByOwner
+
+Gets the IDs of NFTs reset by a user.
+
+```solidity
+function getNFTsResetByOwner(address _owner) public view returns (uint256[] memory) {
+  // ... (Get NFT IDs reset by owner)
+}
+```
+
+### 5.14 getTotalNft
+
+Gets the total number of NFTs in existence.
+
+```solidity
+function getTotalNft() public view returns (uint256) {
+  // ... (Get total number of NFTs)
+}
+```
+
+## 6. Changer Functions <a name="changer-functions"></a>
+
+### 6.1 changeFees
+
+Changes the fees required for NFT operations.
+
+```solidity
+function changeFees(uint256 _fees) external onlyOwner {
+  // ... (Change fees functionality)
+}
+```
+
+### 6.2 changeNbNftStake
+
+Changes the number of NFTs required to stake.
+
+```solidity
+function changeNbNftStake(uint256 _nb) external onlyOwner {
+  // ... (Change number of NFTs required to stake functionality)
+}
+```
+
+### 6.3 changeOwner
+
+Changes the owner of the contract.
+
+```solidity
+function changeOwner(address _newOwner) external onlyOwner {
+  // ... (Change owner functionality)
+}
+```
+
+## 7. Internal Functions <a name="internal-functions"></a>
+
+### 7.1 \_baseURI
+
+Internal function to return the base URI for metadata.
+
+```solidity
+function _baseURI() internal view virtual override(ERC721) returns (string memory) {
+  // ... (Get base URI for metadata)
+}
+```
+
+### 7.2 getLocation
+
+Internal function to get the decrypted location.
+
+```solidity
+function getLocation(Location memory _location) internal view returns (NFTLocation memory) {
+  // ... (Get decrypted location)
+}
+```
+
+### 7.3 isLocationAlreadyUsed
+
+Internal function to check if the location is already used.
+
+```solidity
+function isLocationAlreadyUsed(Location memory newLocation) internal view {
+  // ... (Check if location is already used)
+}
+```
+
+### 7.4 checkFees
+
+Internal function to check if the user has enough funds to pay NFT tax.
+
+```solidity
+function checkFees(uint256 _tokenId, address previous) internal view returns (uint256) {
+  // ... (Check user fees functionality)
+}
+```
+
+### 7.5 mint
+
+Internal function to mint NFTs with location data and associated fees.
+
+```solidity
+function mint(bytes[] calldata data, address _owner, uint256[] calldata feesData) internal {
+  // ... (Mint NFTs functionality)
+}
+```
+
+## 8. Internal Functions Utiles <a name="internal-functions-utiles"></a>
+
+### 8.1 resetMapping
+
+Internal function to reset mappings.
+
+```solidity
+function resetMapping(uint256 tokenId, address previous) internal {
+  // ... (Reset mapping functionality)
+}
+```
+
+### 8.2 removeElement
+
+Internal function to remove an element from an array.
+
+```solidity
+function removeElement(uint256[] storage array, uint256 element) internal {
+  // ... (Remove element from array functionality)
+}
+```
+
+### 8.3 contains
+
+Internal function to check if an element exists in an array.
+
+```solidity
+function contains(uint256[] storage array, uint256 element) internal view returns (bool) {
+  // ... (Check if element exists in array functionality)
+}
+```
+
+### 8.4 isOnPoint
+
+Internal function to check if a set of coordinates is within a location.
+
+```solidity
+function isOnPoint(euint32 lat, euint32 lng, Location memory location) internal view returns (bool) {
+  // ... (Check if coordinates are within location functionality)
+}
+```
+
+### 8.5 burnNFT
+
+Internal function to burn (destroy) an NFT.
+
+```solidity
+function burnNFT(uint256 tokenId) external onlyOwner {
+  // ... (Burn NFT functionality)
+}
+```
+
+### 8.6 isLocationValid
+
+Internal function to check if the location is valid.
+
+```solidity
+function isLocationValid(uint256 locationId) public view returns (bool) {
+  // ... (Check if location is valid functionality)
+}
+```
+
+## 9. Gaming Functions <a name="gaming-functions"></a>
+
+### 9.1 createGpsOwner
+
+Creates one or more NFTs with taxes only for the owner.
+
+```solidity
+function createGpsOwner(bytes[] calldata data, uint256[] calldata feesData) external onlyOwner {
+  // ... (Create NFTs functionality for owner)
+}
+```
+
+### 9.2 createGpsOwnerNft
+
+Creates one or more NFTs with taxes only for the owner of the NFT.
+
+```solidity
+function createGpsOwnerNft(bytes[] calldata data, uint256[] calldata feesData) external isAccess {
+  // ... (Create NFTs functionality for owner of the NFT)
+}
+```
+
+### 9.3 stakeNFT
+
+Stakes one or more NFTs with taxes.
+
+```solidity
+function stakeNFT(uint256[] calldata nftIndices) external {
+  // ... (Stake NFTs functionality)
+}
+```
+
+### 9.4 unstakeNFT
+
+Unstakes one or more NFTs, deleting taxes.
+
+```solidity
+function unstakeNFT(uint256[] calldata nftIndices) external {
+  // ... (Unstake NFTs functionality)
+}
+```
+
+### 9.5 checkGps
+
+Checks GPS coordinates against a specified location's coordinates.
+
+```solidity
+function checkGps(
+  bytes calldata userLatitude,
+  bytes calldata userLongitude,
+  uint256 _tokenId
+) external payable returns (bool) {
+  // ... (Check GPS functionality)
+}
+```
+
+### 9.6 resetNFT
+
+Resets one or more NFTs, putting them back into the game.
+
+```solidity
+function resetNFT(uint256[] calldata tokenIds, uint256[] calldata taxes) external {
+  // ... (Reset NFTs functionality)
+}
+```
+
+### 9.7 resetNFT
+
+Cancels the reset of one or more NFTs.
+
+```solidity
+function cancelResetNFT(uint256[] calldata tokenIds) external {
+  // ... (Cancel reset of NFTs functionality)
+}
+```
+
+## 10. Conclusion <a name="conclusion"></a>
 
 The NftGuessr smart contract provides a flexible and secure platform for a location-based NFT guessing game. Users can
 create, stake, transfer, reset, and interact with NFTs using encrypted GPS coordinates. The contract ensures ownership,

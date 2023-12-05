@@ -20,7 +20,7 @@ contract NftGuessr is ERC721Enumerable, Ownable {
 
     // Mapping to store NFT locations and non-accessible locations.
     mapping(uint256 => Location) internal locations;
-    mapping(uint256 => Location) internal locationsNonAccessible;
+    // mapping(uint256 => Location) internal locationsNonAccessible;
     // Mapping to track NFT creators / stake / reset and their fees.
     mapping(address => uint256[]) public creatorNft; // To see all NFTsIDs back in game
     mapping(address => mapping(uint256 => uint256)) public userFees; // To see all fees for nfts address user
@@ -85,10 +85,10 @@ contract NftGuessr is ERC721Enumerable, Ownable {
 
     // Function to get the location of an NFT for owner smart contract using decrypted coordinates.
     function getNFTLocation(uint256 tokenId) external view onlyOwner returns (NFTLocation memory) {
-        if (isLocationValid(tokenId)) {
-            return getLocation(locations[tokenId]);
-        }
-        return getLocation(locationsNonAccessible[tokenId]);
+        //if (isLocationValid(tokenId)) {
+        return getLocation(locations[tokenId]);
+        //}
+        // return getLocation(locationsNonAccessible[tokenId]);
     }
 
     // Function to get the location of an NFT for owner using decrypted coordinates.
@@ -98,9 +98,9 @@ contract NftGuessr is ERC721Enumerable, Ownable {
         address creaAddr = getAddressCreationWithToken(tokenId); // Check if user is the creator
 
         if (ownerOf(tokenId) == msg.sender) {
-            return getLocation(locationsNonAccessible[tokenId]);
+            return getLocation(locations[tokenId]);
         } else if (stakeAddr == msg.sender) {
-            return getLocation(locationsNonAccessible[tokenId]);
+            return getLocation(locations[tokenId]);
         } else if (resetAddr == msg.sender || creaAddr == msg.sender) {
             return getLocation(locations[tokenId]);
         } else revert("Not Owner");
@@ -215,26 +215,24 @@ contract NftGuessr is ERC721Enumerable, Ownable {
         return nftLocation;
     }
 
-    // Function internal to check if latitude and longitude already exist between two location
-    function isExist(Location memory newLocation, Location memory readLocation) internal view returns (bool) {
-        return (TFHE.decrypt(TFHE.eq(newLocation.lat, readLocation.lat)) &&
-            TFHE.decrypt(TFHE.eq(newLocation.lng, readLocation.lng)));
+    // Function internal to check if location does exist for creation
+    function isLocationAlreadyUsed(Location memory newLocation) internal view {
+        for (uint256 i = 1; i <= getTotalNft(); i++) {
+            TFHE.optReq(TFHE.ne(newLocation.lat, locations[i].lat));
+            TFHE.optReq(TFHE.ne(newLocation.lng, locations[i].lng));
+        }
     }
 
-    // Function internal to check if location does exist for creation
-    function isLocationAlreadyUsed(Location memory newLocation) internal view returns (bool) {
-        for (uint256 i = 1; i <= getTotalNft(); i++) {
-            if (isLocationValid(i)) {
-                if (isExist(newLocation, locations[i])) {
-                    return true; // Location is already used
-                }
-            } else {
-                if (isExist(newLocation, locationsNonAccessible[i])) {
-                    return true; // Location is already used
-                }
-            }
+    // Function internal to check if user has enough funds to pay NFT tax.
+    function checkFees(uint256 _tokenId, address previous) internal view returns (uint256) {
+        uint256 nftFees = userFees[previous][_tokenId];
+        uint256 totalTax = fees.add(nftFees);
+
+        if (msg.value >= totalTax) {
+            return 0; // Les frais sont suffisants
+        } else {
+            return totalTax.sub(msg.value); // Montant manquant
         }
-        return false;
     }
 
     // Internal function to mint NFTs with location data and associated fees.
@@ -259,7 +257,7 @@ contract NftGuessr is ERC721Enumerable, Ownable {
                 isValid: true
             });
 
-            require(!isLocationAlreadyUsed(locate), "Location exist");
+            isLocationAlreadyUsed(locate);
 
             locations[tokenId] = locate;
             _mint(_owner, tokenId);
@@ -278,7 +276,7 @@ contract NftGuessr is ERC721Enumerable, Ownable {
     //Function to reset mapping
     function resetMapping(uint256 tokenId, address previous) internal {
         delete userFees[previous][tokenId];
-        delete locations[tokenId];
+        locations[tokenId].isValid = false;
         delete previousOwner[tokenId];
         delete creatorNft[previous];
         delete tokenResetAddress[tokenId];
@@ -319,6 +317,7 @@ contract NftGuessr is ERC721Enumerable, Ownable {
         address previous = previousOwner[tokenId];
 
         resetMapping(tokenId, previous);
+        delete locations[tokenId];
         delete isStake[tokenId];
         _burn(tokenId);
     }
@@ -390,18 +389,6 @@ contract NftGuessr is ERC721Enumerable, Ownable {
         }
     }
 
-    // Function internal to check if user has enough funds to pay NFT tax.
-    function checkFees(uint256 _tokenId, address previous) internal view returns (uint256) {
-        uint256 nftFees = userFees[previous][_tokenId];
-        uint256 totalTax = fees.add(nftFees);
-
-        if (msg.value >= totalTax) {
-            return 0; // Les frais sont suffisants
-        } else {
-            return totalTax.sub(msg.value); // Montant manquant
-        }
-    }
-
     /**
      * @dev Checks GPS coordinates against a specified location's coordinates.
      * @param userLatitude The latitude of the user's location.
@@ -426,7 +413,7 @@ contract NftGuessr is ERC721Enumerable, Ownable {
         uint256 totalSupply = totalSupply();
 
         require(_tokenId <= totalSupply, "Your token id is invalid");
-        require(isLocationValid(_tokenId), "Location does not exist");
+        require(isLocationValid(_tokenId), "Location does not valid");
 
         if (isOnPoint(lat, lng, locations[_tokenId])) {
             require(ownerOf(_tokenId) != msg.sender, "you are the owner");
@@ -441,7 +428,7 @@ contract NftGuessr is ERC721Enumerable, Ownable {
             require(missingFunds == 0, string(abi.encodePacked("Insufficient funds. Missing ", missingFunds, " wei")));
 
             payable(previous).transfer(userFees[previous][_tokenId]);
-            locationsNonAccessible[_tokenId] = locations[_tokenId]; // This prevents a location from being present when it belongs to a user.
+            // locationsNonAccessible[_tokenId] = locations[_tokenId]; // This prevents a location from being present when it belongs to a user.
 
             resetMapping(_tokenId, previous); // Reset data with delete
 
@@ -477,9 +464,8 @@ contract NftGuessr is ERC721Enumerable, Ownable {
             userFees[msg.sender][tokenId] = tax;
             resetNft[msg.sender].push(tokenId);
             previousOwner[tokenId] = ownerOf(tokenId);
-            locations[tokenId] = locationsNonAccessible[tokenId];
+            locations[tokenId].isValid = true;
             tokenResetAddress[tokenId] = msg.sender;
-            delete locationsNonAccessible[tokenId];
             _transfer(msg.sender, address(this), tokenId);
             emit ResetNFT(msg.sender, tokenId, true);
         }
@@ -498,8 +484,7 @@ contract NftGuessr is ERC721Enumerable, Ownable {
             require(contains(resetNft[msg.sender], tokenId), "NFT is not back in game");
             require(!contains(creatorNft[msg.sender], tokenId), "the creator cannot reset nft");
 
-            locationsNonAccessible[tokenId] = locations[tokenId];
-            delete locations[tokenId];
+            locations[tokenId].isValid = false;
             delete tokenResetAddress[tokenId];
             userFees[msg.sender][tokenId] = 0;
             removeElement(resetNft[msg.sender], tokenId);
