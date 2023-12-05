@@ -51,8 +51,7 @@ import "fhevm/lib/TFHE.sol";
 Provided by OpenZeppelin, used for managing token IDs.
 
 ```solidity
-import "@openzeppelin/contracts/utils/Counters.sol"; import
-
+import "@openzeppelin/contracts/utils/Counters.sol";
 ```
 
 ### 0.3 Ownable
@@ -76,7 +75,7 @@ import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 An extension of the ERC721 standard, allowing enumeration of all tokens.
 
 ```solidity
-"@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol"; import
+"@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
 
 ```
 
