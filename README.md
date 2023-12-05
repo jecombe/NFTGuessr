@@ -83,16 +83,16 @@ An extension of the ERC721 standard, allowing enumeration of all tokens.
 
 ### 1.1 Location
 
-Represents the geographical coordinates of an NFT location.
+Represents the encrypted geographical coordinates of an NFT location.
 
 ```solidity
 struct Location {
-  uint32 northLat;
-  uint32 southLat;
-  uint32 eastLon;
-  uint32 westLon;
-  uint32 lat;
-  uint32 lng;
+  euint32 northLat;
+  euint32 southLat;
+  euint32 eastLon;
+  euint32 westLon;
+  euint32 lat;
+  euint32 lng;
   bool isValid;
 }
 ```
