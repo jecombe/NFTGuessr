@@ -53,15 +53,12 @@ contract NftGuessr is ERC721Enumerable, Ownable {
 
     /************************ OWNER FUNCTIONS *************************/
 
-    // Fonction pour permettre au propriétaire de récupérer les ETH
+    // Withdraw for owner smart contract
     function withdraw() external onlyOwner {
-        // Récupérez le solde du contrat
         uint256 contractBalance = address(this).balance;
 
-        // Vérifiez que le solde est supérieur à zéro
-
-        // Transférez les fonds au propriétaire
         (bool success, ) = owner().call{ value: contractBalance }("");
+
         require(success, "Transfer failed");
     }
 
@@ -99,7 +96,7 @@ contract NftGuessr is ERC721Enumerable, Ownable {
             return getLocation(locations[tokenId]);
         } else if (resetAddr == msg.sender || creaAddr == msg.sender) {
             return getLocation(locations[tokenId]);
-        } else revert("Not Owner");
+        } else revert("your are not the owner");
     }
 
     // Function to get the address associated with the reset of an NFT.
@@ -133,7 +130,7 @@ contract NftGuessr is ERC721Enumerable, Ownable {
         return ownedNFTs;
     }
 
-    // Function to get the creation IDs and fees of NFTs created by a user.
+    // Function to get the creation IDs and fees of NFTs created by a user. (fees creator is for one round)
     function getNftCreationAndFeesByUser(address user) public view returns (uint256[] memory, uint256[] memory) {
         uint256[] memory ids = new uint256[](creatorNft[user].length);
         uint256[] memory feesNft = new uint256[](creatorNft[user].length);
@@ -230,9 +227,9 @@ contract NftGuessr is ERC721Enumerable, Ownable {
         uint256 totalTax = fees.add(nftFees);
 
         if (msg.value >= totalTax) {
-            return 0; // Les frais sont suffisants
+            return 0; // fees enough
         } else {
-            return totalTax.sub(msg.value); // Montant manquant
+            return totalTax.sub(msg.value); //fees need
         }
     }
 
@@ -315,7 +312,7 @@ contract NftGuessr is ERC721Enumerable, Ownable {
     /************************ GAMING FUNCTIONS *************************/
 
     /**
-     * @dev createGPS one or more NFTs, with tax just for owner smart contract.
+     * @dev createGPS one or more NFTs, with tax (one round) just for owner smart contract. set on 0
      * @param data An array of NFT GPS coordinates to be create.
      * @param feesData An array of fees to be create corresponding of array data.
      */
@@ -324,7 +321,7 @@ contract NftGuessr is ERC721Enumerable, Ownable {
     }
 
     /**
-     * @dev createGPS one or more NFTs, with tax just for owner nft.
+     * @dev createGPS one or more NFTs, with tax (one round) just for owner nft.
      * @param data An array of NFT GPS coordinates to be create.
      * @param feesData An array of fees to be create corresponding of array data.
      */
@@ -394,7 +391,7 @@ contract NftGuessr is ERC721Enumerable, Ownable {
         euint32 lat = TFHE.asEuint32(userLatitude);
         euint32 lng = TFHE.asEuint32(userLongitude);
 
-        bool result = false;
+        bool isWin = false;
         uint256 totalSupply = totalSupply();
 
         require(_tokenId <= totalSupply, "Your token id is invalid");
@@ -403,29 +400,26 @@ contract NftGuessr is ERC721Enumerable, Ownable {
         if (isOnPoint(lat, lng, locations[_tokenId])) {
             require(ownerOf(_tokenId) != msg.sender, "you are the owner");
             require(!isStake[_tokenId], "NFT is stake"); // prevent
-
-            address actualOwner = ownerNft[_tokenId];
-
-            require(actualOwner != msg.sender, "you are the owner !"); // prevent
-
             require(getAddressCreationWithToken(_tokenId) != msg.sender, "you are the creator !");
 
-            uint256 missingFunds = checkFees(_tokenId, ownerNft[_tokenId]);
+            address actualOwner = ownerNft[_tokenId];
+            require(actualOwner != msg.sender, "you are the owner !"); // prevent
 
+            uint256 missingFunds = checkFees(_tokenId, actualOwner);
             require(missingFunds == 0, string(abi.encodePacked("Insufficient funds. Missing ", missingFunds, " wei")));
 
-            payable(actualOwner).transfer(userFees[actualOwner][_tokenId]);
+            payable(actualOwner).transfer(userFees[actualOwner][_tokenId]); // msg.sender transfer fees to actual owner of nft.
 
             resetMapping(_tokenId, actualOwner); // Reset data with delete
             removeElement(resetNft[actualOwner], _tokenId);
 
             ownerNft[_tokenId] = msg.sender; // Allows recording the new owner for the reset (NFTs back in game).
-            result = true;
+            isWin = true;
 
             _transfer(ownerOf(_tokenId), msg.sender, _tokenId); //Transfer nft to winner
         }
-        emit GpsCheckResult(msg.sender, result, _tokenId);
-        return result;
+        emit GpsCheckResult(msg.sender, isWin, _tokenId);
+        return isWin;
     }
 
     /**
@@ -489,7 +483,6 @@ contract NftGuessr is ERC721Enumerable, Ownable {
         delete locations[tokenId];
         delete creatorNft[actualOwner];
         delete tokenCreationAddress[tokenId];
-
         delete isStake[tokenId];
         _burn(tokenId);
     }
