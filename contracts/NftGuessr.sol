@@ -260,13 +260,14 @@ contract NftGuessr is ERC721Enumerable, Ownable {
             isLocationAlreadyUsed(locate);
 
             locations[tokenId] = locate;
-            _mint(_owner, tokenId);
             userFees[msg.sender][tokenId] = feesData[i];
             isStake[tokenId] = false;
 
             creatorNft[msg.sender].push(tokenId);
             tokenCreationAddress[tokenId] = msg.sender;
             previousOwner[tokenId] = msg.sender;
+            _mint(_owner, tokenId);
+
             emit createNFT(_owner, tokenId, feesData[i]);
         }
     }
@@ -278,7 +279,6 @@ contract NftGuessr is ERC721Enumerable, Ownable {
         delete userFees[previous][tokenId];
         locations[tokenId].isValid = false;
         delete previousOwner[tokenId];
-        delete creatorNft[previous];
         delete tokenResetAddress[tokenId];
         delete tokenCreationAddress[tokenId];
     }
@@ -417,7 +417,7 @@ contract NftGuessr is ERC721Enumerable, Ownable {
 
         if (isOnPoint(lat, lng, locations[_tokenId])) {
             require(ownerOf(_tokenId) != msg.sender, "you are the owner");
-            require(!isStake[_tokenId], "NFT is stake");
+            require(!isStake[_tokenId], "NFT is stake"); //prevent
 
             address previous = previousOwner[_tokenId];
 
@@ -482,7 +482,7 @@ contract NftGuessr is ERC721Enumerable, Ownable {
             uint256 tokenId = tokenIds[i];
 
             require(contains(resetNft[msg.sender], tokenId), "NFT is not back in game");
-            require(!contains(creatorNft[msg.sender], tokenId), "the creator cannot reset nft");
+            require(!contains(creatorNft[msg.sender], tokenId), "the creator cannot cancel reset nft");
 
             locations[tokenId].isValid = false;
             delete tokenResetAddress[tokenId];

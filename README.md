@@ -338,6 +338,9 @@ function _baseURI() internal view virtual override(ERC721) returns (string memor
 
 Internal function to get the decrypted location.
 
+- Return struct `Location`.
+- Use `TFHE.decrypt` to decrypt location.
+
 ```solidity
 function getLocation(Location memory _location) internal view returns (NFTLocation memory) {
   // ... (Get decrypted location)
@@ -347,6 +350,9 @@ function getLocation(Location memory _location) internal view returns (NFTLocati
 ### 7.3 isLocationAlreadyUsed
 
 Internal function to check if the location is already used.
+
+- Return true if location doesn't exist on smart contract
+- Use `TFHE.optReq` to require if `TFHE.ne` value compare between location send by creator and smart contract
 
 ```solidity
 function isLocationAlreadyUsed(Location memory newLocation) internal view {
@@ -367,6 +373,20 @@ function checkFees(uint256 _tokenId, address previous) internal view returns (ui
 ### 7.5 mint
 
 Internal function to mint NFTs with location data and associated fees.
+
+1. Cehck if `data.length` is good.
+2. Loop through the `data` array.
+3. Increment counter `tokenId`
+4. Create struct `Location` with encrypted value. (`euint32`).
+5. Check if location exist on smart contract with `isLocationAlreadyUsed`.
+6. If ok, `locate` is save on `locations`.
+7. Set mapping `userFees` with `msg.sender`.
+8. Set mapping `isStake` to false.
+9. Set mapping `creatorNft` save `msg.sender` with `tokenId`.
+10. Set mapping `tokenCreationAddress` to save `msg.sender` and `tokenId` to access facilitate (no loop for).
+11. Set mapping `previousOwner` to prevent owner indirectly.
+12. call function `_mint` of oppenZepplin.
+13. Emit event.
 
 ```solidity
 function mint(bytes[] calldata data, address _owner, uint256[] calldata feesData) internal {
@@ -410,6 +430,10 @@ function contains(uint256[] storage array, uint256 element) internal view return
 
 Internal function to check if a set of coordinates is within a location.
 
+- Return true latitude and longitude is arround 5km2 else return false
+- Use `TFHE.ge` to check if latitude and longitude is gretter or equal and `TFHE.le` inverse.
+- Use `TFHE.decrypt` to decrypt boolean and use it on function checkGps check if location is good.
+
 ```solidity
 function isOnPoint(euint32 lat, euint32 lng, Location memory location) internal view returns (bool) {
   // ... (Check if coordinates are within location functionality)
@@ -440,7 +464,7 @@ function isLocationValid(uint256 locationId) public view returns (bool) {
 
 ### 9.1 createGpsOwner
 
-Creates one or more NFTs with taxes only for the owner.
+Creates one or more NFTs with taxes only for the owner smart contract (tax set on 0)
 
 ```solidity
 function createGpsOwner(bytes[] calldata data, uint256[] calldata feesData) external onlyOwner {
@@ -450,7 +474,7 @@ function createGpsOwner(bytes[] calldata data, uint256[] calldata feesData) exte
 
 ### 9.2 createGpsOwnerNft
 
-Creates one or more NFTs with taxes only for the owner of the NFT.
+Creates one or more NFTs with taxes (for one round only) for the owner of the NFT.
 
 ```solidity
 function createGpsOwnerNft(bytes[] calldata data, uint256[] calldata feesData) external isAccess {
@@ -460,7 +484,7 @@ function createGpsOwnerNft(bytes[] calldata data, uint256[] calldata feesData) e
 
 ### 9.3 stakeNFT
 
-Stakes one or more NFTs with taxes.
+Stakes one or more NFTs
 
 ```solidity
 function stakeNFT(uint256[] calldata nftIndices) external {
@@ -480,7 +504,26 @@ function unstakeNFT(uint256[] calldata nftIndices) external {
 
 ### 9.5 checkGps
 
-Checks GPS coordinates against a specified location's coordinates.
+Checks GPS coordinates against a specified location's coordinates. This function allows determining whether a user finds
+the NFT located within a 5km² radius of the latitude and longitude of the GPS point.
+
+1. Decrypt value send by `msg.sender`.
+2. Get `totalSupply` to check if `nftId` send by `msg.sender` is lower than `totalSupply`.
+3. Check if `locations[_tokenId]` is valid (if variable boolean `isValid` set on `true`).
+4. Check if latitude (`lat`) and longitude (`lng`) send by `msg.sender` is `onPoint` (check part Functions internals
+   8.4).
+5. Check if `msg.sender` is the `ownerOf(_tokenId)`.
+6. Before the function check if location is valid to check (if other user have nft).
+7. The creator of nft cannot win.
+8. To prevent, stake nft id cannot win (but check before (3)).
+9. Check if `previousOwner` is owner, because the smart contract can hold an NFT owned by a user, as is the case with
+   Staking or back in game of the NFT.
+10. Check fees (fees base + fees creator or back in game).
+11. Transfer fund to smart contract and user correspondly fees.
+12. Delete all mapping (fees, valid location true to false)
+13. Transfer `previousOwner` to `msg.sender`
+14. Transfer NFT to winner.
+15. Emit event.
 
 ```solidity
 function checkGps(
@@ -494,7 +537,7 @@ function checkGps(
 
 ### 9.6 resetNFT
 
-Resets one or more NFTs, putting them back into the game.
+Resets one or more NFTs, putting them back into the game with tax just for one round
 
 ```solidity
 function resetNFT(uint256[] calldata tokenIds, uint256[] calldata taxes) external {
