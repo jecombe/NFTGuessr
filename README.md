@@ -32,7 +32,7 @@ This contract is licensed under the MIT License.
 5. [Getter Functions](#getter-functions)
 6. [Changer Functions](#changer-functions)
 7. [Internal Functions](#internal-functions)
-8. [Internal Functions Utiles](#internal-functions-utiles)
+8. [Internal Functions Utils](#internal-functions-utils)
 9. [Gaming Functions](#gaming-functions)
 10. [Conclusion](#conclusion)
 
@@ -290,6 +290,16 @@ function getTotalNft() public view returns (uint256) {
 }
 ```
 
+### 5.15 isLocationValid
+
+Check if the location is valid. (true or false) stake, own or not.
+
+```solidity
+function isLocationValid(uint256 locationId) public view returns (bool) {
+  // ... (Check if location is valid functionality)
+}
+```
+
 ## 6. Changer Functions <a name="changer-functions"></a>
 
 ### 6.1 changeFees
@@ -374,7 +384,7 @@ function checkFees(uint256 _tokenId, address previous) internal view returns (ui
 
 Internal function to mint NFTs with location data and associated fees.
 
-1. Cehck if `data.length` is good.
+1. Check if `data.length` is good.
 2. Loop through the `data` array.
 3. Increment counter `tokenId`
 4. Create struct `Location` with encrypted value. (`euint32`).
@@ -384,7 +394,7 @@ Internal function to mint NFTs with location data and associated fees.
 8. Set mapping `isStake` to false.
 9. Set mapping `creatorNft` save `msg.sender` with `tokenId`.
 10. Set mapping `tokenCreationAddress` to save `msg.sender` and `tokenId` to access facilitate (no loop for).
-11. Set mapping `previousOwner` to prevent owner indirectly.
+11. Set mapping `ownerNft` to prevent owner indirectly.
 12. call function `_mint` of oppenZepplin.
 13. Emit event.
 
@@ -394,7 +404,7 @@ function mint(bytes[] calldata data, address _owner, uint256[] calldata feesData
 }
 ```
 
-## 8. Internal Functions Utiles <a name="internal-functions-utiles"></a>
+## 8. Internal Functions Utils <a name="internal-functions-utils"></a>
 
 ### 8.1 resetMapping
 
@@ -437,26 +447,6 @@ Internal function to check if a set of coordinates is within a location.
 ```solidity
 function isOnPoint(euint32 lat, euint32 lng, Location memory location) internal view returns (bool) {
   // ... (Check if coordinates are within location functionality)
-}
-```
-
-### 8.5 burnNFT
-
-Internal function to burn (destroy) an NFT.
-
-```solidity
-function burnNFT(uint256 tokenId) external onlyOwner {
-  // ... (Burn NFT functionality)
-}
-```
-
-### 8.6 isLocationValid
-
-Internal function to check if the location is valid.
-
-```solidity
-function isLocationValid(uint256 locationId) public view returns (bool) {
-  // ... (Check if location is valid functionality)
 }
 ```
 
@@ -513,17 +503,19 @@ the NFT located within a 5km² radius of the latitude and longitude of the GPS p
 4. Check if latitude (`lat`) and longitude (`lng`) send by `msg.sender` is `onPoint` (check part Functions internals
    8.4).
 5. Check if `msg.sender` is the `ownerOf(_tokenId)`.
+
 6. Before the function check if location is valid to check (if other user have nft).
 7. The creator of nft cannot win.
 8. To prevent, stake nft id cannot win (but check before (3)).
-9. Check if `previousOwner` is owner, because the smart contract can hold an NFT owned by a user, as is the case with
-   Staking or back in game of the NFT.
-10. Check fees (fees base + fees creator or back in game).
-11. Transfer fund to smart contract and user correspondly fees.
-12. Delete all mapping (fees, valid location true to false)
-13. Transfer `previousOwner` to `msg.sender`
-14. Transfer NFT to winner.
-15. Emit event.
+9. Check if `ownerNft` is owner, because the smart contract can hold an NFT owned by a user, as is the case with Staking
+   or back in game of the NFT.
+10. Check if `msg.sender` is the creator of nft.
+11. Check fees (fees base + fees creator or back in game).
+12. Transfer fund to smart contract and user owner correspondly fees.
+13. Delete all mapping (fees, valid location true to false)
+14. Transfer `ownerNft` to `msg.sender`
+15. Transfer NFT to winner.
+16. Emit event.
 
 ```solidity
 function checkGps(
@@ -552,6 +544,16 @@ Cancels the reset of one or more NFTs.
 ```solidity
 function cancelResetNFT(uint256[] calldata tokenIds) external {
   // ... (Cancel reset of NFTs functionality)
+}
+```
+
+### 9.8 burnNFT
+
+Function to burn (destroy) an NFT.
+
+```solidity
+function burnNFT(uint256 tokenId) external onlyOwner {
+  // ... (Burn NFT functionality)
 }
 ```
 

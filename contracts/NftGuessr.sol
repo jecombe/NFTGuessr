@@ -20,11 +20,10 @@ contract NftGuessr is ERC721Enumerable, Ownable {
 
     // Mapping to store NFT locations and non-accessible locations.
     mapping(uint256 => Location) internal locations;
-    // mapping(uint256 => Location) internal locationsNonAccessible;
     // Mapping to track NFT creators / stake / reset and their fees.
     mapping(address => uint256[]) public creatorNft; // To see all NFTsIDs back in game
     mapping(address => mapping(uint256 => uint256)) public userFees; // To see all fees for nfts address user
-    mapping(uint256 => address) previousOwner; // This variable is used to indirectly determine if a user is the owner of the NFT.
+    mapping(uint256 => address) ownerNft; // This variable is used to indirectly determine if a user is the owner of the NFT.
     mapping(address => uint256[]) public stakeNft; // To see all NFTsIDs stake
     mapping(uint256 => bool) public isStake; // Boolean to check if tokenId is stake
     mapping(uint256 => address) public tokenStakeAddress; // see address user NFT stake with ID
@@ -85,10 +84,7 @@ contract NftGuessr is ERC721Enumerable, Ownable {
 
     // Function to get the location of an NFT for owner smart contract using decrypted coordinates.
     function getNFTLocation(uint256 tokenId) external view onlyOwner returns (NFTLocation memory) {
-        //if (isLocationValid(tokenId)) {
         return getLocation(locations[tokenId]);
-        //}
-        // return getLocation(locationsNonAccessible[tokenId]);
     }
 
     // Function to get the location of an NFT for owner using decrypted coordinates.
@@ -179,6 +175,11 @@ contract NftGuessr is ERC721Enumerable, Ownable {
         return totalSupply();
     }
 
+    //Function to see if location is valid
+    function isLocationValid(uint256 locationId) public view returns (bool) {
+        return locations[locationId].isValid;
+    }
+
     /************************ CHANGER FUNCTIONS *************************/
 
     // Function to change the fees required for NFT operations.
@@ -224,8 +225,8 @@ contract NftGuessr is ERC721Enumerable, Ownable {
     }
 
     // Function internal to check if user has enough funds to pay NFT tax.
-    function checkFees(uint256 _tokenId, address previous) internal view returns (uint256) {
-        uint256 nftFees = userFees[previous][_tokenId];
+    function checkFees(uint256 _tokenId, address _ownerNft) internal view returns (uint256) {
+        uint256 nftFees = userFees[_ownerNft][_tokenId];
         uint256 totalTax = fees.add(nftFees);
 
         if (msg.value >= totalTax) {
@@ -265,22 +266,21 @@ contract NftGuessr is ERC721Enumerable, Ownable {
 
             creatorNft[msg.sender].push(tokenId);
             tokenCreationAddress[tokenId] = msg.sender;
-            previousOwner[tokenId] = msg.sender;
+            ownerNft[tokenId] = msg.sender;
             _mint(_owner, tokenId);
 
             emit createNFT(_owner, tokenId, feesData[i]);
         }
     }
 
-    /************************ INTERNAL FUNCTIONS UTILES *************************/
+    /************************ INTERNAL FUNCTIONS UTILS *************************/
 
     //Function to reset mapping
-    function resetMapping(uint256 tokenId, address previous) internal {
-        delete userFees[previous][tokenId];
+    function resetMapping(uint256 tokenId, address _ownerNft) internal {
+        delete userFees[_ownerNft][tokenId];
         locations[tokenId].isValid = false;
-        delete previousOwner[tokenId];
+        delete ownerNft[tokenId];
         delete tokenResetAddress[tokenId];
-        delete tokenCreationAddress[tokenId];
     }
 
     // Internal function to remove an element from an array.
@@ -310,21 +310,6 @@ contract NftGuessr is ERC721Enumerable, Ownable {
             TFHE.decrypt(TFHE.le(lat, location.northLat)) &&
             TFHE.decrypt(TFHE.ge(lng, location.westLon)) &&
             TFHE.decrypt(TFHE.le(lng, location.eastLon)));
-    }
-
-    // Function to burn (destroy) an NFT, only callable by the owner.
-    function burnNFT(uint256 tokenId) external onlyOwner {
-        address previous = previousOwner[tokenId];
-
-        resetMapping(tokenId, previous);
-        delete locations[tokenId];
-        delete isStake[tokenId];
-        _burn(tokenId);
-    }
-
-    //Function to see if location is valid
-    function isLocationValid(uint256 locationId) public view returns (bool) {
-        return locations[locationId].isValid;
     }
 
     /************************ GAMING FUNCTIONS *************************/
@@ -417,26 +402,26 @@ contract NftGuessr is ERC721Enumerable, Ownable {
 
         if (isOnPoint(lat, lng, locations[_tokenId])) {
             require(ownerOf(_tokenId) != msg.sender, "you are the owner");
-            require(!isStake[_tokenId], "NFT is stake"); //prevent
+            require(!isStake[_tokenId], "NFT is stake"); // prevent
 
-            address previous = previousOwner[_tokenId];
+            address actualOwner = ownerNft[_tokenId];
 
-            require(previous != msg.sender, "you are the owner");
+            require(actualOwner != msg.sender, "you are the owner !"); // prevent
 
-            uint256 missingFunds = checkFees(_tokenId, previousOwner[_tokenId]);
+            require(getAddressCreationWithToken(_tokenId) != msg.sender, "you are the creator !");
+
+            uint256 missingFunds = checkFees(_tokenId, ownerNft[_tokenId]);
 
             require(missingFunds == 0, string(abi.encodePacked("Insufficient funds. Missing ", missingFunds, " wei")));
 
-            payable(previous).transfer(userFees[previous][_tokenId]);
-            // locationsNonAccessible[_tokenId] = locations[_tokenId]; // This prevents a location from being present when it belongs to a user.
+            payable(actualOwner).transfer(userFees[actualOwner][_tokenId]);
 
-            resetMapping(_tokenId, previous); // Reset data with delete
+            resetMapping(_tokenId, actualOwner); // Reset data with delete
+            removeElement(resetNft[actualOwner], _tokenId);
 
-            if (previous != address(this)) {
-                removeElement(resetNft[previous], _tokenId);
-            }
-            previousOwner[_tokenId] = msg.sender; // Allows recording the new owner for the reset (NFTs back in game).
+            ownerNft[_tokenId] = msg.sender; // Allows recording the new owner for the reset (NFTs back in game).
             result = true;
+
             _transfer(ownerOf(_tokenId), msg.sender, _tokenId); //Transfer nft to winner
         }
         emit GpsCheckResult(msg.sender, result, _tokenId);
@@ -463,7 +448,7 @@ contract NftGuessr is ERC721Enumerable, Ownable {
 
             userFees[msg.sender][tokenId] = tax;
             resetNft[msg.sender].push(tokenId);
-            previousOwner[tokenId] = ownerOf(tokenId);
+            ownerNft[tokenId] = ownerOf(tokenId);
             locations[tokenId].isValid = true;
             tokenResetAddress[tokenId] = msg.sender;
             _transfer(msg.sender, address(this), tokenId);
@@ -491,5 +476,21 @@ contract NftGuessr is ERC721Enumerable, Ownable {
             _transfer(address(this), msg.sender, tokenId);
             emit ResetNFT(msg.sender, tokenId, false);
         }
+    }
+
+    /**
+     * @dev brun nft with id, reset mapping, delete location and all creations ids and address
+     * @param tokenId An array of NFT IDs to cancel the reset for.
+     */
+    function burnNFT(uint256 tokenId) external onlyOwner {
+        address actualOwner = ownerNft[tokenId];
+
+        resetMapping(tokenId, actualOwner);
+        delete locations[tokenId];
+        delete creatorNft[actualOwner];
+        delete tokenCreationAddress[tokenId];
+
+        delete isStake[tokenId];
+        _burn(tokenId);
     }
 }
