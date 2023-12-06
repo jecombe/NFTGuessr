@@ -7,20 +7,40 @@
 
 NFTGuessr is a game similar to GeoGuessr. The idea is to find the location of a Google Street View. This game operates
 on the EVM (Zama). Each location is associated with an NFT encrypted with FHE. To inquire if the found location is
-correct (if is within the 5km2 radius of the NFT location), it costs you 1 Zama (base fee). If you have found it, you
+correct (if is within the 5 km² radius of the NFT location), it costs you 1 Zama (base fee). If you have found it, you
 win the NFT. Two options are available to you:
 
 - Either you put the NFT back into play with your tax for one round.
-- Accumulate 3 NFTs to stake them, unlocking the right to create NFTs with GPS coordinates, including your tax for one
-  round.
+- Accumulate 3 NFTs to stake them, unlocking the right to create NFTs with GPS coordinates, including your tax.
 
-### Author
+## Games explain description
 
-[Jérémy Combe]
+### Smart contract NFTGuessr
 
-### License
+The smart contract has a fixed tax (1 token by default) and a radius (5 km² by default). The contract owner can change
+this values and withdraw fees. When an NFT is held by a user, it is not possible for another user to find the NFT. If a
+user puts their NFT back into play, **they will not be able to win it**. If a user is the creator of an NFT, they can
+**NEVER** win that NFT.
 
-This contract is licensed under the MIT License.
+### Staker
+
+A staker delegates their NFTs to the smart contract. If a staker has 3 staked NFTs, it unlocks access to create
+additional NFTs, taking into account a tax for one game round.
+
+### Back in game
+
+An NFT holder can put their NFT back into play with a tax for one game round.
+
+### Check Gps
+
+A user sends an NFT ID along with latitude and longitude, and a **MINIMUM** of 1 token + NFT fees to verify if their
+location is within a 5 km² radius of the specified NFT ID. If it is, the NFT is transferred to the user; otherwise,
+nothing happens.
+
+### Create Gps
+
+If the user has access to NFT creation, they must have a valid location, meaning with a latitude and longitude for which
+a Google Street View is available.
 
 ## Table of Contents
 
@@ -562,3 +582,11 @@ function burnNFT(uint256 tokenId) external onlyOwner {
 The NftGuessr smart contract provides a flexible and secure platform for a location-based NFT guessing game. Users can
 create, stake, transfer, reset, and interact with NFTs using encrypted GPS coordinates. The contract ensures ownership,
 fee management, and location validation while emitting events to track key activities.
+
+### Author
+
+[Jérémy Combe]
+
+### License
+
+This contract is licensed under the MIT License.
