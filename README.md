@@ -5,13 +5,20 @@
 - [NFTGuessr](http://nftguessr.com)
 - [Medium](https://medium.com/@jeremcombe/nftguessr-6dcfde3621ac)
 
-NFTGuessr is a game similar to GeoGuessr. The idea is to find the location of a Google Street View. This game operates
-on the EVM (Zama). Each location is associated with an NFT encrypted with FHE. To inquire if the found location is
-correct (if is within the 5 km² radius of the NFT location), it costs you 1 Zama (base fee). If you have found it, you
-win the NFT. Two options are available to you:
+NFTGuessr is a game similar to GeoGuessr.  
+The idea is to find the location represented by NFT of a Google Street View.  
+This game operates on the EVM (Zama). Each location is associated with an NFT GeoSpace (GSP) encrypted with FHE. To
+inquire if the found location is correct (if is within the 5 km² radius of the NFT location), it costs you 1 Zama (base
+fee).  
+If you have found it, you win the NFT and 2 ERC20 SpaceCoin (SPC).
 
-- Either you put the NFT back into play with your tax for one round.
-- Accumulate 3 NFTs to stake them, unlocking the right to create NFTs with GPS coordinates, including your tax.
+Four options are available to you:
+
+- 💼 just hold your NFTs in your wallet.
+- 🔄 Either you put the NFT GSP back into play with your tax for one round.
+- 🎁 Stake one or more NFTs GSP to have SpaceCoin daily reward (actually 1 SPC).
+- 🔓 Stake minimum 3 NFTs GSP to unlock the right to create NFTs (Cost: 1 SPC) for the game, including a ZAMA tax valid
+  for one game round.
 
 ## Games explain description
 
@@ -22,25 +29,39 @@ this values and withdraw fees. When an NFT is held by a user, it is not possible
 user puts their NFT back into play, **they will not be able to win it**. If a user is the creator of an NFT, they can
 **NEVER** win that NFT.
 
+### Token management
+
+Token ERC20 with oppenZepplin. A dynamic total supply: The NftGuessr smart contract holds 10,000 SPC, and the creator of
+the NftGuessr contract also holds 10,000 SPC. Additional SPC is created when a player generates new NFTs at a cost of 1
+SPC each; the NftGuessr smart contract mints 2 SPC for each new NFT created. When a user win a NFT GSP, he receive 2
+token SPC.
+
+### Fees management
+
+- Base fees in Zama (ZAMA) used for guess requests (1 ZAMA): All Zama returns to the smart contract, whose owner
+  controls it and can withdraw.
+- Geospace NFT creation fees in SpaceCoin (SPC) (1 SPC): The SPC fees are distributed to all NFT creators in a fair
+  manner.
+
 ### Staker
 
-A staker delegates their NFTs to the smart contract. If a staker has 3 staked NFTs, it unlocks access to create
-additional NFTs, taking into account a tax for one game round.
+A staker delegates their NFTs to the smart contract. If a staker has **3 staked NFTs GSP**, it unlocks access to create
+additional NFTs. If a staker has **1 staked NFTs GSP**, receive daily reward (actually 1 SPC)
 
 ### Back in game
 
-An NFT holder can put their NFT back into play with a tax for one game round.
+An NFT holder can put their NFT back into play with a tax for **one game round**.
 
 ### Check Gps
 
-A user sends an NFT ID along with latitude and longitude, and a **MINIMUM** of 1 token + NFT fees to verify if their
-location is within a 5 km² radius of the specified NFT ID. If it is, the NFT is transferred to the user; otherwise,
-nothing happens.
+A user sends an NFT ID along with latitude and longitude (without decimal (1e15)), and a **MINIMUM** of 1 token + NFT
+fees to verify if their location is within a 5 km² radius of the specified NFT ID. If it is, the NFT is transferred to
+the user; otherwise, nothing happens.
 
 ### Create Gps
 
-If the user has access to NFT creation, they must have a valid location, meaning with a latitude and longitude for which
-a Google Street View is available.
+If the user has access to NFT creation, they must have a valid location, meaning with a latitude and longitude and
+others with conversion (without decimal (1e15)) for which a Google Street View is available. **It's cost 1 SPC**.
 
 ## Table of Contents
 
@@ -150,11 +171,22 @@ modifier isAccess() {
 
 ### 3.1 withdraw
 
-Allows the owner to withdraw Ether from the contract.
+Allows the owner to withdraw Zama and token SPC from the contract.
 
 ```solidity
 function withdraw() external onlyOwner {
   // ... (Withdraw functionality)
+}
+```
+
+### 3.1 rewardUsersWithERC20
+
+Function to reward the user with ERC-20 tokens script launch every 24 hours and check if user have receive reward in a
+same day.
+
+```solidity
+function rewardUsersWithERC20() external onlyOwner {
+  // ... (reward and transfer functionality)
 }
 ```
 
@@ -180,17 +212,7 @@ function getNbStake() external view returns (uint256) {
 }
 ```
 
-### 5.2 getTotalStakedNFTs
-
-Gets the total number of staked NFTs.
-
-```solidity
-function getTotalStakedNFTs() external view returns (uint256) {
-  // ... (Get total number of staked NFTs)
-}
-```
-
-### 5.3 getNFTLocation
+### 5.4 getNFTLocation
 
 Gets the location of an NFT for the contract owner.
 
@@ -200,7 +222,7 @@ function getNFTLocation(uint256 tokenId) external view onlyOwner returns (NFTLoc
 }
 ```
 
-### 5.4 getNFTLocationForOwner
+### 5.5 getNFTLocationForOwner
 
 Gets the location of an NFT for the owner.
 
@@ -210,7 +232,7 @@ function getNFTLocationForOwner(uint256 tokenId) external view returns (NFTLocat
 }
 ```
 
-### 5.5 getAddressResetWithToken
+### 5.6 getAddressResetWithToken
 
 Gets the address associated with the reset of an NFT.
 
@@ -220,7 +242,7 @@ function getAddressResetWithToken(uint256 _tokenId) public view returns (address
 }
 ```
 
-### 5.6 getAddressCreationWithToken
+### 5.7 getAddressCreationWithToken
 
 Gets the address associated with the creation of an NFT.
 
@@ -230,7 +252,7 @@ function getAddressCreationWithToken(uint256 _tokenId) public view returns (addr
 }
 ```
 
-### 5.7 getAddressStakeWithToken
+### 5.8 getAddressStakeWithToken
 
 Gets the address associated with the staking of an NFT.
 
@@ -240,7 +262,7 @@ function getAddressStakeWithToken(uint256 _tokenId) public view returns (address
 }
 ```
 
-### 5.8 getFee
+### 5.9 getFee
 
 Gets the fee associated with a user and an NFT.
 
@@ -250,7 +272,7 @@ function getFee(address user, uint256 id) external view returns (uint256) {
 }
 ```
 
-### 5.9 getOwnedNFTs
+### 5.10 getOwnedNFTs
 
 Gets an array of NFTs owned by a user.
 
@@ -260,7 +282,7 @@ function getOwnedNFTs(address user) external view returns (uint256[] memory) {
 }
 ```
 
-### 5.10 getNftCreationAndFeesByUser
+### 5.11 getNftCreationAndFeesByUser
 
 Gets the creation IDs and fees of NFTs created by a user.
 
@@ -270,7 +292,7 @@ function getNftCreationAndFeesByUser(address user) public view returns (uint256[
 }
 ```
 
-### 5.11 getResetNFTsAndFeesByOwner
+### 5.12 getResetNFTsAndFeesByOwner
 
 Gets the IDs and fees of NFTs reset by a user.
 
@@ -280,7 +302,7 @@ function getResetNFTsAndFeesByOwner(address user) public view returns (uint256[]
 }
 ```
 
-### 5.12 getNFTsStakedByOwner
+### 5.13 getNFTsStakedByOwner
 
 Gets the IDs of NFTs staked by a user.
 
@@ -290,7 +312,7 @@ function getNFTsStakedByOwner(address _owner) public view returns (uint256[] mem
 }
 ```
 
-### 5.13 getNFTsResetByOwner
+### 5.14 getNFTsResetByOwner
 
 Gets the IDs of NFTs reset by a user.
 
@@ -300,7 +322,7 @@ function getNFTsResetByOwner(address _owner) public view returns (uint256[] memo
 }
 ```
 
-### 5.14 getTotalNft
+### 5.15 getTotalNft
 
 Gets the total number of NFTs in existence.
 
@@ -310,13 +332,63 @@ function getTotalNft() public view returns (uint256) {
 }
 ```
 
-### 5.15 isLocationValid
+### 5.16 isLocationValid
 
 Check if the location is valid. (true or false) stake, own or not.
 
 ```solidity
 function isLocationValid(uint256 locationId) public view returns (bool) {
   // ... (Check if location is valid functionality)
+}
+```
+
+### 5.17 isAccessCreation
+
+Check if user have access to creation gps (3 NFT GeoSpace stake).
+
+```solidity
+function isAccessCreation(address user) public view returns (bool) {
+  // ... (Check if location access functionality)
+}
+```
+
+### 5.18 getFeesCreation
+
+Function to get fees creation for nft (SPC)
+
+```solidity
+function getFeesCreation() external view returns (uint256) {
+  // ... (get fees)
+}
+```
+
+### 5.19 getFeesBase
+
+Function to get fees creation for nft (SPC)
+
+```solidity
+function getFeesBase() external view returns (uint256) {
+  // ... (get fees)
+}
+```
+
+### 5.20 getAmountRewardUsers
+
+    //Function to get amount reward for user 24h (for staker) (SPC)
+
+```solidity
+function getAmountRewardUsers() external view returns (uint256) {
+  // ... (get fees)
+}
+```
+
+### 5.21 getAmountRewardUser
+
+    //Function to get amount reward for user using checkGps (SPC)
+
+```solidity
+function getAmountRewardUser() external view returns (uint256) {
+  // ... (get fees)
 }
 ```
 
@@ -349,6 +421,56 @@ Changes the owner of the contract.
 ```solidity
 function changeOwner(address _newOwner) external onlyOwner {
   // ... (Change owner functionality)
+}
+```
+
+### 6.4 setAddressToken
+
+Change address tokenERC20.
+
+```solidity
+function setAddressToken(address _tokenErc20) external onlyOwner {
+  // ... (Setter functionality)
+}
+```
+
+### 6.5 changeFeesCreation
+
+Function to change the fees required for NFT creation.
+
+```solidity
+function changeFeesCreation(uint256 _feesCreation) external onlyOwner {
+  // ... (Change fees)
+}
+```
+
+### 6.6 changeRewardUser
+
+Function to change reward user checkGps in SPC
+
+```solidity
+function changeRewardUser(uint256 _amountReward) external onlyOwner {
+  // ... (Change reward)
+}
+```
+
+### 6.7 changeRewardUsers
+
+Function to change reward user daily 24h in SPC
+
+```solidity
+function changeRewardUsers(uint256 _amountReward) external onlyOwner {
+  // ... (Change reward)
+}
+```
+
+### 6.8 changeAmountMintErc20
+
+    // Function to change amount mint with function createGpsOwnerNft
+
+```solidity
+function changeAmountMintErc20(uint256 _amountMintErc20) external onlyOwner {
+  // ... (Change reward)
 }
 ```
 
@@ -424,6 +546,36 @@ function mint(bytes[] calldata data, address _owner, uint256[] calldata feesData
 }
 ```
 
+### 7.6 rewardUserWithERC20
+
+Function to transfer reward the user if stake minimum 1 NFT GeoSpace with ERC-20 tokens SpaceCoin
+
+```solidity
+function rewardUserWithERC20(address user) internal view returns (bool) {
+  // ... (transfer user reward)
+}
+```
+
+### 7.7 createObjectLocation
+
+Function internal to create object Location with conversion FHE bytes to euint
+
+```solidity
+function createObjectLocation(bytes[] calldata data, uint256 baseIndex) internal pure returns (Location memory) {
+  // ... (create object Location)
+}
+```
+
+### 7.8 setDataForMinting
+
+Function to set data mapping and array for minting NFT GeoSpace function
+
+```solidity
+function setDataForMinting(uint256 tokenId, uint256 feesToSet, Location memory locate) internal {
+  // ... (set data on variables)
+}
+```
+
 ## 8. Internal Functions Utils <a name="internal-functions-utils"></a>
 
 ### 8.1 resetMapping
@@ -438,7 +590,7 @@ function resetMapping(uint256 tokenId, address previous) internal {
 
 ### 8.2 removeElement
 
-Internal function to remove an element from an array.
+Internal function to remove an element from an array uint256.
 
 ```solidity
 function removeElement(uint256[] storage array, uint256 element) internal {
@@ -467,6 +619,36 @@ Internal function to check if a set of coordinates is within a location.
 ```solidity
 function isOnPoint(euint32 lat, euint32 lng, Location memory location) internal view returns (bool) {
   // ... (Check if coordinates are within location functionality)
+}
+```
+
+### 8.5 removeElementAdress
+
+Internal function to remove an element from an array address.
+
+```solidity
+function removeElementAddress(address[] storage array, address element) internal {
+  // ... (Remove element from array functionality)
+}
+```
+
+### 8.6 containsAddress
+
+     Internal function to check if an element exists in an array.
+
+```solidity
+function containsAddress(address[] storage array, address element) internal view returns (bool) {
+  // ... (return bool if success)
+}
+```
+
+### 8.7 transactionCoinSpace
+
+Internal function to create transaction from msg.sender to smart contract
+
+```solidity
+function transactionCoinSpace() internal {
+  // ... (transfer erc20 to smart contract)
 }
 ```
 
