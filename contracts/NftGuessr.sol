@@ -12,6 +12,7 @@ contract NftGuessr is ERC721Enumerable, Ownable {
     /* LIBRARIES */
     using Counters for Counters.Counter;
     using SafeMath for uint256;
+
     Counters.Counter private _tokenIdCounter; // tokenCounter id NFT
     string private _baseTokenURI; // Don't use actually
 
@@ -95,11 +96,6 @@ contract NftGuessr is ERC721Enumerable, Ownable {
     receive() external payable {}
 
     /************************ GETTER FUNCTIONS *************************/
-
-    // Function to get the number of NFTs required to stake.
-    function getNbStake() external view returns (uint256) {
-        return nbNftStake;
-    }
 
     //get balance user SPC
     function getBalanceCoinSpace(address user) public view returns (uint256) {
@@ -207,26 +203,6 @@ contract NftGuessr is ERC721Enumerable, Ownable {
     // Check if user have access to creation NFT GeoSpace (3 NFT GeoSpace minimum stake)
     function isAccessCreation(address user) public view returns (bool) {
         return stakeNft[user].length >= nbNftStake;
-    }
-
-    //Function to get fees creation for nft (SPC)
-    function getFeesCreation() external view returns (uint256) {
-        return feesCreation;
-    }
-
-    //Function to get fees checkGps (Zama)
-    function getFeesBase() external view returns (uint256) {
-        return fees;
-    }
-
-    //Function to get amount reward for user 24h (for staker) (SPC)
-    function getAmountRewardUsers() external view returns (uint256) {
-        return amountRewardUsers;
-    }
-
-    //Function to get amount reward for user using checkGps (SPC)
-    function getAmountRewardUser() external view returns (uint256) {
-        return amountRewardUser;
     }
 
     /************************ CHANGER FUNCTIONS *************************/

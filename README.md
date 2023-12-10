@@ -202,16 +202,6 @@ receive() external payable {}
 
 ## 5. Getter Functions <a name="getter-functions"></a>
 
-### 5.1 getNbStake
-
-Gets the number of NFTs required to stake.
-
-```solidity
-function getNbStake() external view returns (uint256) {
-  // ... (Get number of NFTs required to stake)
-}
-```
-
 ### 5.4 getNFTLocation
 
 Gets the location of an NFT for the contract owner.
@@ -349,46 +339,6 @@ Check if user have access to creation gps (3 NFT GeoSpace stake).
 ```solidity
 function isAccessCreation(address user) public view returns (bool) {
   // ... (Check if location access functionality)
-}
-```
-
-### 5.18 getFeesCreation
-
-Function to get fees creation for nft (SPC)
-
-```solidity
-function getFeesCreation() external view returns (uint256) {
-  // ... (get fees)
-}
-```
-
-### 5.19 getFeesBase
-
-Function to get fees creation for nft (SPC)
-
-```solidity
-function getFeesBase() external view returns (uint256) {
-  // ... (get fees)
-}
-```
-
-### 5.20 getAmountRewardUsers
-
-    //Function to get amount reward for user 24h (for staker) (SPC)
-
-```solidity
-function getAmountRewardUsers() external view returns (uint256) {
-  // ... (get fees)
-}
-```
-
-### 5.21 getAmountRewardUser
-
-    //Function to get amount reward for user using checkGps (SPC)
-
-```solidity
-function getAmountRewardUser() external view returns (uint256) {
-  // ... (get fees)
 }
 ```
 
