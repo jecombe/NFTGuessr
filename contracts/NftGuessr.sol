@@ -29,9 +29,9 @@ contract NftGuessr is ERC721Enumerable, Ownable {
     /* ERC20 */
     CoinSpace private coinSpace; // CoinSpace interface token Erc20
     address[] public stakerReward; // address for all staker if have 1 NFT GeoSpace stake can be add or remove element
-    uint256 amountMintErc20 = 2; // Number of mint token  when user call createGpsForOwner.
-    uint256 amountRewardUser = 2;
-    uint256 amountRewardUsers = 1;
+    uint256 public amountMintErc20 = 2; // Number of mint token  when user call createGpsForOwner.
+    uint256 public amountRewardUser = 2;
+    uint256 public amountRewardUsers = 1;
 
     /* MAPPING */
     mapping(uint256 => Location) internal locations; // Mapping to store NFT locations and non-accessible locations.
