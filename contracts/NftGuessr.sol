@@ -390,7 +390,6 @@ contract NftGuessr is ERC721Enumerable, Ownable {
     }
 
     // Internal function to remove an element from an array address.
-
     function removeElementAddress(address[] storage array, address element) internal {
         for (uint256 i = 0; i < array.length; i++) {
             if (array[i] == element) {
@@ -543,11 +542,11 @@ contract NftGuessr is ERC721Enumerable, Ownable {
             payable(actualOwner).transfer(userFees[actualOwner][_tokenId]); // msg.sender transfer fees to actual owner of nft.
 
             resetMapping(_tokenId, actualOwner); // Reset data with delete
-            removeElement(resetNft[actualOwner], _tokenId);
+            removeElement(resetNft[actualOwner], _tokenId); // delete resetOwner from array mapping
 
             ownerNft[_tokenId] = msg.sender; // Allows recording the new owner for the reset (NFTs back in game).
             isWin = true;
-            rewardUserWithERC20(msg.sender, amountRewardUser);
+            rewardUserWithERC20(msg.sender, amountRewardUser); //reward token SpaceCoin to user
 
             _transfer(ownerOf(_tokenId), msg.sender, _tokenId); //Transfer nft to winner
         }
