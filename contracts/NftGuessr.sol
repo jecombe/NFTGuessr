@@ -48,7 +48,7 @@ contract NftGuessr is ERC721Enumerable, Ownable {
     /* EVENT */
     event GpsCheckResult(address indexed user, bool result, uint256 tokenId); // Event emitted when a user checks the GPS coordinates against an NFT location.
     event createNFT(address indexed user, uint256 tokenId, uint256 fee); // Event emitted when a new NFT is created.
-    event ResetNFT(address indexed user, uint256 tokenId, bool isReset); // Event emitted when an NFT is reset.
+    event ResetNFT(address indexed user, uint256 tokenId, bool isReset, uint256 tax); // Event emitted when an NFT is reset.
     event RewardWithERC20(address indexed user, uint256 amount); // Événement émis lorsqu'un utilisateur reçoit des jetons ERC-20 en récompense
 
     // Contract constructor initializes base token URI and owner.
@@ -578,7 +578,7 @@ contract NftGuessr is ERC721Enumerable, Ownable {
             locations[tokenId].isValid = true;
             tokenResetAddress[tokenId] = msg.sender;
             _transfer(msg.sender, address(this), tokenId);
-            emit ResetNFT(msg.sender, tokenId, true);
+            emit ResetNFT(msg.sender, tokenId, true, tax);
         }
     }
 
@@ -600,7 +600,7 @@ contract NftGuessr is ERC721Enumerable, Ownable {
             userFees[msg.sender][tokenId] = 0;
             removeElement(resetNft[msg.sender], tokenId);
             _transfer(address(this), msg.sender, tokenId);
-            emit ResetNFT(msg.sender, tokenId, false);
+            emit ResetNFT(msg.sender, tokenId, false, 0);
         }
     }
 
