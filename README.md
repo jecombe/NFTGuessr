@@ -24,10 +24,10 @@ Four options are available to you:
 
 ### Smart contract NFTGuessr
 
-The smart contract has a fixed tax (1 token by default) and a radius (5 km² by default). The contract owner can change
-this values and withdraw fees. When an NFT is held by a user, it is not possible for another user to find the NFT. If a
-user puts their NFT back into play, **they will not be able to win it**. If a user is the creator of an NFT, they can
-**NEVER** win that NFT.
+The smart contract has a fixed tax ZAMA (1 token by default) and a radius (5 km² by default). The contract owner can
+change this values and withdraw fees. When an NFT is held by a user, it is not possible for another user to find the
+NFT. If a user puts their NFT back into play, **they will not be able to win it**. If a user is the creator of an NFT,
+they can **NEVER** win that NFT.
 
 ### Token management
 
