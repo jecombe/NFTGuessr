@@ -120,6 +120,14 @@ An extension of the ERC721 standard, allowing enumeration of all tokens.
 
 ```
 
+### 0.6 ERC20
+
+External library for ERC20
+
+```solidity
+"@openzeppelin/contracts/token/ERC20/ERC20.sol";
+```
+
 ## 1. Structs <a name="structs"></a>
 
 ### 1.1 Location
