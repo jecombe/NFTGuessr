@@ -30,8 +30,8 @@ contract NftGuessr is ERC721Enumerable, Ownable {
     CoinSpace private coinSpace; // CoinSpace interface token Erc20
     address[] public stakerReward; // address for all staker if have 1 NFT GeoSpace stake can be add or remove element
     uint256 public amountMintErc20 = 2; // Number of mint token  when user call createGpsForOwner.
-    uint256 public amountRewardUser = 2;
-    uint256 public amountRewardUsers = 1;
+    uint256 public amountRewardUser = 2; // amount reward winner
+    uint256 public amountRewardUsers = 1; // amount reward staker daily 24h.
 
     /* MAPPING */
     mapping(uint256 => Location) internal locations; // Mapping to store NFT locations and non-accessible locations.
@@ -49,7 +49,8 @@ contract NftGuessr is ERC721Enumerable, Ownable {
     event GpsCheckResult(address indexed user, bool result, uint256 tokenId); // Event emitted when a user checks the GPS coordinates against an NFT location.
     event createNFT(address indexed user, uint256 tokenId, uint256 fee); // Event emitted when a new NFT is created.
     event ResetNFT(address indexed user, uint256 tokenId, bool isReset, uint256 tax); // Event emitted when an NFT is reset.
-    event RewardWithERC20(address indexed user, uint256 amount); // Événement émis lorsqu'un utilisateur reçoit des jetons ERC-20 en récompense
+    event RewardWithERC20(address indexed user, uint256 amount); // Event to see when user receive reward token.
+    event StakingNFT(address indexed user, uint256 tokenId, uint256 timestamp, bool isStake); // Event to see stake / unstake
 
     // Contract constructor initializes base token URI and owner.
     constructor() ERC721("GeoSpace", "GSP") {
@@ -73,9 +74,11 @@ contract NftGuessr is ERC721Enumerable, Ownable {
         (bool success, ) = owner().call{ value: contractBalance }("");
 
         require(success, "Transfer failed");
+    }
 
-        uint256 erc20Balance = getBalanceCoinSpace(address(this));
-        require(coinSpace.transfer(owner(), erc20Balance), "Token transfer failed");
+    // Withdraw token for owner smart contract
+    function withdrawToken(uint256 _amount) external onlyOwner {
+        require(coinSpace.transfer(owner(), _amount), "Token transfer failed");
     }
 
     // Change tokenAddress Erc20
@@ -476,6 +479,7 @@ contract NftGuessr is ERC721Enumerable, Ownable {
             if (stakeNft[msg.sender].length >= 1) {
                 stakerReward.push(msg.sender);
             }
+            emit StakingNFT(msg.sender, nftId, block.timestamp, true);
         }
     }
 
@@ -499,6 +503,7 @@ contract NftGuessr is ERC721Enumerable, Ownable {
                 removeElementAddress(stakerReward, msg.sender);
             }
             _transfer(ownerOf(nftId), msg.sender, nftId);
+            emit StakingNFT(msg.sender, nftId, block.timestamp, false);
         }
     }
 

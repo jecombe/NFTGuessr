@@ -171,7 +171,7 @@ modifier isAccess() {
 
 ### 3.1 withdraw
 
-Allows the owner to withdraw Zama and token SPC from the contract.
+Allows the owner to withdraw Zama from the contract.
 
 ```solidity
 function withdraw() external onlyOwner {
@@ -179,7 +179,17 @@ function withdraw() external onlyOwner {
 }
 ```
 
-### 3.1 rewardUsersWithERC20
+### 3.2 withdrawToken
+
+Allows the owner to withdraw token SPC from the contract.
+
+```solidity
+function withdrawToken() external onlyOwner {
+  // ... (Withdraw token functionality)
+}
+```
+
+### 3.3 rewardUsersWithERC20
 
 Function to reward the user with ERC-20 tokens script launch every 24 hours and check if user have receive reward in a
 same day.
