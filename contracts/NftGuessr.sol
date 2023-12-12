@@ -26,6 +26,9 @@ contract NftGuessr is ERC721Enumerable, Ownable {
     uint256 public fees = 1 ether; // Fees (Zama) base
     uint256 public feesCreation = 1; // Fees (SPC) nft creation Geospace
 
+    /* ERROR */
+    euint8 internal NO_ERROR;
+    euint8 internal ERROR;
     /* ERC20 */
     CoinSpace private coinSpace; // CoinSpace interface token Erc20
     address[] public stakerReward; // address for all staker if have 1 NFT GeoSpace stake can be add or remove element
@@ -55,6 +58,8 @@ contract NftGuessr is ERC721Enumerable, Ownable {
     // Contract constructor initializes base token URI and owner.
     constructor() ERC721("GeoSpace", "GSP") {
         _baseTokenURI = "";
+        NO_ERROR = TFHE.asEuint8(0);
+        ERROR = TFHE.asEuint8(1);
     }
 
     /************************ MODIFER FUNCTIONS *************************/
@@ -424,12 +429,35 @@ contract NftGuessr is ERC721Enumerable, Ownable {
         return false;
     }
 
+    function isf(ebool value1, ebool value2, ebool value3) public returns (bool) {
+        // return TFHE.decrypt(TFHE.and(value1, TFHE.and(value2, value3)));
+    }
+
     // Internal function to check if a given set of coordinates is within a location.
     function isOnPoint(euint32 lat, euint32 lng, Location memory location) internal view returns (bool) {
         return (TFHE.decrypt(TFHE.ge(lat, location.southLat)) &&
             TFHE.decrypt(TFHE.le(lat, location.northLat)) &&
             TFHE.decrypt(TFHE.ge(lng, location.westLon)) &&
             TFHE.decrypt(TFHE.le(lng, location.eastLon)));
+    }
+
+    // ACTUALLY I TEST THIS FUNCTION
+    // Internal function to check if a given set of coordinates is within a location.
+    function isOnPoint2(euint32 lat, euint32 lng, Location memory location) internal view returns (uint8) {
+        ebool isLatSouth = TFHE.ge(lat, location.southLat);
+        ebool isLatNorth = TFHE.le(lat, location.northLat);
+        ebool isLngWest = TFHE.le(lng, location.westLon);
+        ebool isLngEast = TFHE.le(lng, location.eastLon);
+
+        euint8 isErrorLatSouth = TFHE.cmux(isLatSouth, NO_ERROR, ERROR);
+        euint8 isErrorLatNorth = TFHE.cmux(isLatNorth, NO_ERROR, ERROR);
+        euint8 isErrorLngWest = TFHE.cmux(isLngWest, NO_ERROR, ERROR);
+        euint8 isErrorLngEast = TFHE.cmux(isLngEast, NO_ERROR, ERROR);
+
+        return
+            TFHE.decrypt(
+                TFHE.and(TFHE.and(isErrorLatSouth, isErrorLatNorth), TFHE.and(isErrorLngWest, isErrorLngEast))
+            );
     }
 
     /************************ GAMING FUNCTIONS *************************/
@@ -533,7 +561,7 @@ contract NftGuessr is ERC721Enumerable, Ownable {
         require(_tokenId <= totalSupply, "Your token id is invalid");
         require(isLocationValid(_tokenId), "Location does not valid");
 
-        if (isOnPoint(lat, lng, locations[_tokenId])) {
+        if (isOnPoint2(lat, lng, locations[_tokenId]) == 0) {
             require(ownerOf(_tokenId) != msg.sender, "you are the owner");
             require(!isStake[_tokenId], "NFT is stake"); // prevent
             require(getAddressCreationWithToken(_tokenId) != msg.sender, "you are the creator !");
