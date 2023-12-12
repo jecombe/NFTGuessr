@@ -27,8 +27,8 @@ contract NftGuessr is ERC721Enumerable, Ownable {
     uint256 public feesCreation = 1; // Fees (SPC) nft creation Geospace
 
     /* ERROR */
-    euint8 internal NO_ERROR;
-    euint8 internal ERROR;
+    euint8 internal NO_ERROR; // To check if error is present for checkGps
+    euint8 internal ERROR; // To check if error is not present for checkGps
     /* ERC20 */
     CoinSpace private coinSpace; // CoinSpace interface token Erc20
     address[] public stakerReward; // address for all staker if have 1 NFT GeoSpace stake can be add or remove element
@@ -430,16 +430,7 @@ contract NftGuessr is ERC721Enumerable, Ownable {
     }
 
     // Internal function to check if a given set of coordinates is within a location.
-    function isOnPoint(euint32 lat, euint32 lng, Location memory location) internal view returns (bool) {
-        return (TFHE.decrypt(TFHE.ge(lat, location.southLat)) &&
-            TFHE.decrypt(TFHE.le(lat, location.northLat)) &&
-            TFHE.decrypt(TFHE.ge(lng, location.westLon)) &&
-            TFHE.decrypt(TFHE.le(lng, location.eastLon)));
-    }
-
-    // ACTUALLY I TEST THIS FUNCTION
-    // Internal function to check if a given set of coordinates is within a location.
-    function isOnPoint2(euint32 lat, euint32 lng, Location memory location) internal view returns (uint8) {
+    function isOnPoint(euint32 lat, euint32 lng, Location memory location) internal view returns (uint8) {
         ebool isLatSouth = TFHE.ge(lat, location.southLat);
         ebool isLatNorth = TFHE.le(lat, location.northLat);
         ebool isLngWest = TFHE.le(lng, location.westLon);
@@ -557,7 +548,7 @@ contract NftGuessr is ERC721Enumerable, Ownable {
         require(_tokenId <= totalSupply, "Your token id is invalid");
         require(isLocationValid(_tokenId), "Location does not valid");
 
-        if (isOnPoint2(lat, lng, locations[_tokenId]) == 0) {
+        if (isOnPoint(lat, lng, locations[_tokenId]) == 0) {
             require(ownerOf(_tokenId) != msg.sender, "you are the owner");
             require(!isStake[_tokenId], "NFT is stake"); // prevent
             require(getAddressCreationWithToken(_tokenId) != msg.sender, "you are the creator !");
