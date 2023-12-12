@@ -269,7 +269,7 @@ contract NftGuessr is ERC721Enumerable, Ownable {
         }
     }
 
-    // Function internal to get strcture result get Location decrypt
+    // Internal function to get strcture result get Location decrypt
     function getLocation(Location memory _location) internal view returns (NFTLocation memory) {
         uint32 northLat = TFHE.decrypt(_location.northLat);
         uint32 southLat = TFHE.decrypt(_location.southLat);
@@ -281,7 +281,7 @@ contract NftGuessr is ERC721Enumerable, Ownable {
         return nftLocation;
     }
 
-    // Function internal to check if location does exist for creation
+    // Internal function internal to check if location does exist for creation
     function isLocationAlreadyUsed(Location memory newLocation) internal view {
         for (uint256 i = 1; i <= getTotalNft(); i++) {
             TFHE.optReq(TFHE.ne(newLocation.lat, locations[i].lat));
@@ -289,7 +289,7 @@ contract NftGuessr is ERC721Enumerable, Ownable {
         }
     }
 
-    // Function internal to check if user has enough funds to pay NFT tax.
+    // Internal function to check if user has enough funds to pay NFT tax.
     function checkFees(uint256 _tokenId, address _ownerNft) internal view returns (uint256) {
         uint256 nftFees = userFees[_ownerNft][_tokenId];
         uint256 totalTax = fees.add(nftFees);
@@ -301,7 +301,7 @@ contract NftGuessr is ERC721Enumerable, Ownable {
         }
     }
 
-    // Function internal to set data mapping and array for minting NFT GeoSpace function
+    // Internal function to set data mapping and array for minting NFT GeoSpace function
     function setDataForMinting(uint256 tokenId, uint256 feesToSet, Location memory locate) internal {
         locations[tokenId] = locate;
         userFees[msg.sender][tokenId] = feesToSet;
@@ -317,7 +317,7 @@ contract NftGuessr is ERC721Enumerable, Ownable {
         }
     }
 
-    // Function internal to create object Location with conversion FHE bytes to euint
+    // Internal function to create object Location with conversion FHE bytes to euint
     function createObjectLocation(bytes[] calldata data, uint256 baseIndex) internal pure returns (Location memory) {
         return
             Location({
@@ -353,7 +353,7 @@ contract NftGuessr is ERC721Enumerable, Ownable {
         }
     }
 
-    // Function to reward the user with ERC-20 tokens
+    // Internal function to reward the user with ERC-20 tokens
     function rewardUserWithERC20(address user, uint256 amountReward) internal {
         uint256 rewardAmount = amountReward * 10 ** uint256(coinSpace.decimals());
         coinSpace.transfer(user, rewardAmount);
@@ -361,6 +361,7 @@ contract NftGuessr is ERC721Enumerable, Ownable {
         emit RewardWithERC20(user, rewardAmount);
     }
 
+    // Internal function to create transaction from msg.sender to smart contract
     function transactionCoinSpace() internal {
         uint256 amountToTransfer = feesCreation * 10 ** 18;
 
@@ -373,7 +374,7 @@ contract NftGuessr is ERC721Enumerable, Ownable {
 
     /************************ INTERNAL FUNCTIONS UTILS *************************/
 
-    //Function to reset mapping
+    // Internal function to reset mapping
     function resetMapping(uint256 tokenId, address _ownerNft) internal {
         delete userFees[_ownerNft][tokenId];
         locations[tokenId].isValid = false;
@@ -447,7 +448,6 @@ contract NftGuessr is ERC721Enumerable, Ownable {
      * @param data An array of NFT GPS coordinates to be create.
      * @param feesData An array of fees to be create corresponding of array data.
      */
-
     function createGpsOwnerNft(bytes[] calldata data, uint256[] calldata feesData) external isAccess {
         transactionCoinSpace();
         distributeFeesToCreators();
