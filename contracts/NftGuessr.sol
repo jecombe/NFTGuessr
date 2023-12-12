@@ -429,10 +429,6 @@ contract NftGuessr is ERC721Enumerable, Ownable {
         return false;
     }
 
-    function isf(ebool value1, ebool value2, ebool value3) public returns (bool) {
-        // return TFHE.decrypt(TFHE.and(value1, TFHE.and(value2, value3)));
-    }
-
     // Internal function to check if a given set of coordinates is within a location.
     function isOnPoint(euint32 lat, euint32 lng, Location memory location) internal view returns (bool) {
         return (TFHE.decrypt(TFHE.ge(lat, location.southLat)) &&
