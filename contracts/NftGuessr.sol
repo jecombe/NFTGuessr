@@ -37,6 +37,7 @@ contract NftGuessr is ERC721Enumerable, Ownable {
 
     Counters.Counter private _tokenIdCounter; // tokenCounter id NFT
     string private _baseTokenURI; // Don't use actually
+    address public contractOwner;
 
     /* STAKER */
     uint256 public nbNftStake = 3; // Number minimum stake to access right creation NFTs
@@ -82,6 +83,7 @@ contract NftGuessr is ERC721Enumerable, Ownable {
         _baseTokenURI = "";
         NO_ERROR = TFHE.asEuint8(0);
         ERROR = TFHE.asEuint8(1);
+        contractOwner = msg.sender;
     }
 
     /************************ MODIFER FUNCTIONS *************************/
@@ -116,7 +118,9 @@ contract NftGuessr is ERC721Enumerable, Ownable {
     // Function to reward the user with ERC-20 tokens script launch every 24 hours and check if user have receive rward in a same day.
     function rewardUsersWithERC20() external onlyOwner {
         for (uint256 i = 0; i < stakerReward.length; i++) {
-            rewardUserWithERC20(stakerReward[i], amountRewardUsers);
+            if (stakerReward[i] != contractOwner) {
+                rewardUserWithERC20(stakerReward[i], amountRewardUsers);
+            }
         }
     }
 
@@ -269,6 +273,7 @@ contract NftGuessr is ERC721Enumerable, Ownable {
 
     // Function to change the owner of the contract.
     function changeOwner(address _newOwner) external onlyOwner {
+        contractOwner = _newOwner;
         transferOwnership(_newOwner);
     }
 
@@ -281,12 +286,10 @@ contract NftGuessr is ERC721Enumerable, Ownable {
 
     //Internal funtion to distribute fees SPC for all creator
     function distributeFeesToCreators() internal {
-        // Calculate the fee share for each creatorNft
         uint256 totalCreators = creatorNftAddresses.length;
         if (totalCreators > 0 && feesCreation > 0) {
             uint256 feeShare = (feesCreation * (10 ** 18)) / totalCreators;
 
-            // Distribute the fee to all creatorNft addresses
             for (uint256 i = 0; i < totalCreators; i++) {
                 address creator = creatorNftAddresses[i];
                 if (creator != msg.sender) {
@@ -339,7 +342,6 @@ contract NftGuessr is ERC721Enumerable, Ownable {
         ownerNft[tokenId] = msg.sender;
 
         if (!containsAddress(creatorNftAddresses, msg.sender)) {
-            // For distribute fees to all creator
             creatorNftAddresses.push(msg.sender);
         }
     }
@@ -393,9 +395,7 @@ contract NftGuessr is ERC721Enumerable, Ownable {
         uint256 amountToTransfer = feesCreation * 10 ** 18;
 
         require(getBalanceCoinSpace(msg.sender) >= amountToTransfer, "Insufficient ERC-20 balance");
-
         require(coinSpace.allowance(msg.sender, address(this)) >= amountToTransfer, "Insufficient allowance");
-
         require(coinSpace.transferFrom(msg.sender, address(this), amountToTransfer), "Transfer failed");
     }
 
@@ -529,6 +529,7 @@ contract NftGuessr is ERC721Enumerable, Ownable {
 
         for (uint256 i = 0; i < nftIndices.length; i++) {
             uint256 nftId = nftIndices[i];
+
             require(!contains(creatorNft[msg.sender], nftId), "the creator cannot unstake nft");
             require(contains(stakeNft[msg.sender], nftId), "NFT is stake, please unstake");
 
@@ -539,6 +540,7 @@ contract NftGuessr is ERC721Enumerable, Ownable {
             if (stakeNft[msg.sender].length < 1) {
                 removeElementAddress(stakerReward, msg.sender);
             }
+
             _transfer(ownerOf(nftId), msg.sender, nftId);
             emit StakingNFT(msg.sender, nftId, block.timestamp, false);
         }
@@ -585,13 +587,13 @@ contract NftGuessr is ERC721Enumerable, Ownable {
 
             resetMapping(_tokenId, actualOwner); // Reset data with delete
             removeElement(resetNft[actualOwner], _tokenId); // delete resetOwner from array mapping
-
             ownerNft[_tokenId] = msg.sender; // Allows recording the new owner for the reset (NFTs back in game).
             isWin = true;
-            rewardUserWithERC20(msg.sender, amountRewardUser); //reward token SpaceCoin to user
 
+            rewardUserWithERC20(msg.sender, amountRewardUser); //reward token SpaceCoin to user
             _transfer(ownerOf(_tokenId), msg.sender, _tokenId); //Transfer nft to winner
         }
+
         emit GpsCheckResult(msg.sender, isWin, _tokenId);
         return isWin;
     }
@@ -619,6 +621,7 @@ contract NftGuessr is ERC721Enumerable, Ownable {
             ownerNft[tokenId] = ownerOf(tokenId);
             locations[tokenId].isValid = true;
             tokenResetAddress[tokenId] = msg.sender;
+
             _transfer(msg.sender, address(this), tokenId);
             emit ResetNFT(msg.sender, tokenId, true, tax);
         }
@@ -640,6 +643,7 @@ contract NftGuessr is ERC721Enumerable, Ownable {
             locations[tokenId].isValid = false;
             delete tokenResetAddress[tokenId];
             userFees[msg.sender][tokenId] = 0;
+
             removeElement(resetNft[msg.sender], tokenId);
             _transfer(address(this), msg.sender, tokenId);
             emit ResetNFT(msg.sender, tokenId, false, 0);
@@ -658,6 +662,7 @@ contract NftGuessr is ERC721Enumerable, Ownable {
         delete creatorNft[actualOwner];
         delete tokenCreationAddress[tokenId];
         delete isStake[tokenId];
+
         _burn(tokenId);
     }
 }
