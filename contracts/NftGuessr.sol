@@ -3,6 +3,28 @@
 // @notice This contract extends ERC721Enumerable for NFT functionality.
 // SPDX-License-Identifier: MIT
 
+/* *******************************************************************
+For now, Zama does not handle negative integers.
+So you need to use positive latitude and longitude values.
+Here are the available data:
+
+For West EU :
+Latitude : 0 à 70 degrés (nord)
+Longitude : 0 à 30 degrés (est)
+
+For Noth EU:
+Latitude : 50 à 70 degrés (nord)
+Longitude : 0 à 30 degrés (est)
+
+For North America:
+Latitude : 0 à 70 degrés (nord)
+Longitude : 70 à 170 degrés (ouest)
+
+For East Asia:
+Latitude : 0 à 50 degrés (nord)
+Longitude : 90 à 180 degrés (est)
+******************************************************************* */
+
 pragma solidity ^0.8.19;
 import "./libraries/LibrariesNftGuessr.sol";
 import "./structs/StructsNftGuessr.sol";
