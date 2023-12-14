@@ -54,7 +54,6 @@ contract NftGuessr is ERC721Enumerable, Ownable {
     euint8 internal ERROR; // To check if error is not present for checkGps
     /* ERC20 */
     CoinSpace private coinSpace; // CoinSpace interface token Erc20
-    address[] public stakerReward; // address for all staker if have 1 NFT GeoSpace stake can be add or remove element
     uint256 public amountMintErc20 = 2; // Number of mint token  when user call createGpsForOwner.
     uint256 public amountRewardUser = 2; // amount reward winner
     uint256 public amountRewardUsers = 1; // amount reward staker daily 24h.
@@ -70,6 +69,9 @@ contract NftGuessr is ERC721Enumerable, Ownable {
     mapping(uint256 => address) public tokenResetAddress; //  see address user NFT back in game with ID
     mapping(uint256 => address) public tokenCreationAddress; //  see address user NFT creation with ID
     mapping(address => uint256[]) public resetNft; // To see all NFTsIDs back in game
+
+    address[] public stakerReward; // address for all staker if have 1 NFT GeoSpace stake can be add or remove element
+    mapping(address => bool) stakersRewards;
 
     /* EVENT */
     event GpsCheckResult(address indexed user, bool result, uint256 tokenId); // Event emitted when a user checks the GPS coordinates against an NFT location.
@@ -455,11 +457,11 @@ contract NftGuessr is ERC721Enumerable, Ownable {
     function isOnPoint(euint32 lat, euint32 lng, Location memory location) internal view returns (uint8) {
         ebool isLatSouth = TFHE.ge(lat, location.southLat);
         ebool isLatNorth = TFHE.le(lat, location.northLat);
-        ebool isLngWest = TFHE.le(lng, location.westLon);
-        ebool isLngEast = TFHE.le(lng, location.eastLon);
-
         euint8 isErrorLatSouth = TFHE.cmux(isLatSouth, NO_ERROR, ERROR);
         euint8 isErrorLatNorth = TFHE.cmux(isLatNorth, NO_ERROR, ERROR);
+
+        ebool isLngWest = TFHE.ge(lng, location.westLon);
+        ebool isLngEast = TFHE.le(lng, location.eastLon);
         euint8 isErrorLngWest = TFHE.cmux(isLngWest, NO_ERROR, ERROR);
         euint8 isErrorLngEast = TFHE.cmux(isLngEast, NO_ERROR, ERROR);
 
@@ -514,7 +516,7 @@ contract NftGuessr is ERC721Enumerable, Ownable {
             _transfer(ownerOf(nftId), address(this), nftId);
 
             if (stakeNft[msg.sender].length >= 1) {
-                stakerReward.push(msg.sender);
+                stakersRewards[msg.sender] = true;
             }
             emit StakingNFT(msg.sender, nftId, block.timestamp, true);
         }
@@ -539,6 +541,7 @@ contract NftGuessr is ERC721Enumerable, Ownable {
             delete tokenStakeAddress[nftId];
             if (stakeNft[msg.sender].length < 1) {
                 removeElementAddress(stakerReward, msg.sender);
+                delete stakersRewards[msg.sender];
             }
 
             _transfer(ownerOf(nftId), msg.sender, nftId);
