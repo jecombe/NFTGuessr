@@ -593,20 +593,20 @@ contract NftGuessr is ERC721Enumerable, Ownable {
     function isOnPoint(euint32 lat, euint32 lng, Location memory location) internal view returns (bool) {
         ebool isLatSouth = TFHE.ge(lat, location.southLat); //if lat >= location.southLat
         ebool isLatNorth = TFHE.le(lat, location.northLat); // if lat <= location.northLat
-        euint8 isErrorLatSouth = TFHE.cmux(isLatSouth, INSIDE, OUTSIDE); // if latSouth is true then return true else return false
-        euint8 isErrorLatNorth = TFHE.cmux(isLatNorth, INSIDE, OUTSIDE); // if latNorth is true then return true else return false
+        euint8 isInsideLatSouth = TFHE.cmux(isLatSouth, INSIDE, OUTSIDE); // if latSouth is true then return true else return false
+        euint8 isInsideLatNorth = TFHE.cmux(isLatNorth, INSIDE, OUTSIDE); // if latNorth is true then return true else return false
 
         ebool isLngWest = TFHE.ge(lng, location.westLon);
         ebool isLngEast = TFHE.le(lng, location.eastLon);
-        euint8 isErrorLngWest = TFHE.cmux(isLngWest, INSIDE, OUTSIDE);
-        euint8 isErrorLngEast = TFHE.cmux(isLngEast, INSIDE, OUTSIDE);
+        euint8 isInsideLngWest = TFHE.cmux(isLngWest, INSIDE, OUTSIDE);
+        euint8 isInsideLngEast = TFHE.cmux(isLngEast, INSIDE, OUTSIDE);
 
-        euint8 sumLat = isErrorLatSouth + isErrorLatNorth; // additionnal uint8 to have a boolean value with 0 or 1
-        euint8 sumLng = isErrorLngWest + isErrorLngEast;
+        euint8 isInsideLat = isInsideLatSouth + isInsideLatNorth; // additionnal uint8 to have a boolean value with 0 or 1
+        euint8 isInsideLng = isInsideLngWest + isInsideLngEast;
 
-        euint8 sumGlobal = sumLat + sumLng; // Additionnal global sum
+        euint8 isInside = isInsideLat + isInsideLng; // Additionnal global sum
 
-        return TFHE.decrypt(TFHE.eq(sumGlobal, INSIDE)); // Check if sumBlobal is equal 0 (inside gps)
+        return TFHE.decrypt(TFHE.eq(isInside, INSIDE)); // Check if sumBlobal is equal 0 (inside gps)
     }
 
     /**
