@@ -65,13 +65,13 @@ contract NftGuessr is ERC721Enumerable, Ownable {
     mapping(uint256 => address) ownerNft; // This variable is used to indirectly determine if a user is the owner of the NFT.
     mapping(address => uint256[]) public stakeNft; // To see all NFTsIDs stake
     mapping(uint256 => bool) public isStake; // Boolean to check if tokenId is stake
-    mapping(uint256 => address) public tokenStakeAddress; // see address user NFT stake with ID
-    mapping(uint256 => address) public tokenResetAddress; //  see address user NFT back in game with ID
-    mapping(uint256 => address) public tokenCreationAddress; //  see address user NFT creation with ID
+    mapping(uint256 => address) public tokenStakeAddress; // See address user NFT stake with ID
+    mapping(uint256 => address) public tokenResetAddress; //  See address user NFT back in game with ID
+    mapping(uint256 => address) public tokenCreationAddress; // See address user NFT creation with ID
     mapping(address => uint256[]) public resetNft; // To see all NFTsIDs back in game
 
-    address[] public stakerReward; // address for all staker if have 1 NFT GeoSpace stake can be add or remove element
-    mapping(address => bool) stakersRewards;
+    address[] public stakerReward; // Address for all staker if have 1 NFT GeoSpace stake can be add or remove element
+    mapping(address => bool) stakersRewards; // Check if user has stake 1 nft.
 
     /* EVENT */
     event GpsCheckResult(address indexed user, bool result, uint256 tokenId); // Event emitted when a user checks the GPS coordinates against an NFT location.
@@ -453,25 +453,44 @@ contract NftGuessr is ERC721Enumerable, Ownable {
         return false;
     }
 
-    // function isOnPoint(euint32 lat, euint32 lng, Location memory location) internal view returns (bool) {
+    // A TESTER ENCORE CAR LE RESULTAT N'EST PAS CELUI VOULUS (PROBLEME BIT ZAMA)
+    // function isOnPoints(euint32 lat, euint32 lng, Location memory location) internal view returns (uint8) {
     //     ebool isLatSouth = TFHE.ge(lat, location.southLat);
     //     ebool isLatNorth = TFHE.le(lat, location.northLat);
 
-    //     euint8 isErrorLatSouth = TFHE.cmux(isLatSouth, NO_ERROR, ERROR);
-    //     euint8 isErrorLatNorth = TFHE.cmux(isLatNorth, NO_ERROR, ERROR);
+    //     euint8 isErrorLatSouth = TFHE.cmux(isLatSouth, INSIDE, OUTSIDE);
+    //     euint8 isErrorLatNorth = TFHE.cmux(isLatNorth, INSIDE, OUTSIDE);
 
     //     ebool isLngWest = TFHE.ge(lng, location.westLon);
     //     ebool isLngEast = TFHE.le(lng, location.eastLon);
-    //     euint8 isErrorLngWest = TFHE.cmux(isLngWest, NO_ERROR, ERROR);
-    //     euint8 isErrorLngEast = TFHE.cmux(isLngEast, NO_ERROR, ERROR);
+    //     euint8 isErrorLngWest = TFHE.cmux(isLngWest, INSIDE, OUTSIDE);
+    //     euint8 isErrorLngEast = TFHE.cmux(isLngEast, INSIDE, OUTSIDE);
 
-    //     euint8 sumLat = TFHE.add(isErrorLatSouth, isErrorLatNorth);
-    //     euint8 sumLng = TFHE.add(isErrorLngWest, isErrorLngEast);
+    //     euint8 compareLat = TFHE.and(isErrorLatSouth, isErrorLatNorth);
+    //     euint8 compareLng = TFHE.and(isErrorLngWest, isErrorLngEast);
 
-    //     euint8 sumGlobal = TFHE.add(sumLat, sumLng);
-
-    //     return TFHE.decrypt(TFHE.eq(sumGlobal, NO_ERROR));
+    //     return TFHE.decrypt(TFHE.and(compareLat, compareLng));
     // }
+
+    //THIS FUNCTION WORK CORRECTLY
+    function isOnPoint(euint32 lat, euint32 lng, Location memory location) internal view returns (bool) {
+        ebool isLatSouth = TFHE.ge(lat, location.southLat); //if lat >= location.southLat
+        ebool isLatNorth = TFHE.le(lat, location.northLat); // if lat <= location.northLat
+        euint8 isInsideLatSouth = TFHE.cmux(isLatSouth, INSIDE, OUTSIDE); // if latSouth is true then return true else return false
+        euint8 isInsideLatNorth = TFHE.cmux(isLatNorth, INSIDE, OUTSIDE); // if latNorth is true then return true else return false
+
+        ebool isLngWest = TFHE.ge(lng, location.westLon);
+        ebool isLngEast = TFHE.le(lng, location.eastLon);
+        euint8 isInsideLngWest = TFHE.cmux(isLngWest, INSIDE, OUTSIDE);
+        euint8 isInsideLngEast = TFHE.cmux(isLngEast, INSIDE, OUTSIDE);
+
+        euint8 isInsideLat = isInsideLatSouth + isInsideLatNorth; // additionnal uint8 to have a boolean value with 0 or 1
+        euint8 isInsideLng = isInsideLngWest + isInsideLngEast;
+
+        euint8 isInside = isInsideLat + isInsideLng; // Additionnal global sum
+
+        return TFHE.decrypt(TFHE.eq(isInside, INSIDE)); // Check if sumBlobal is equal 0 (inside gps)
+    }
 
     /************************ GAMING FUNCTIONS *************************/
 
@@ -549,64 +568,6 @@ contract NftGuessr is ERC721Enumerable, Ownable {
             _transfer(ownerOf(nftId), msg.sender, nftId);
             emit StakingNFT(msg.sender, nftId, block.timestamp, false);
         }
-    }
-
-    //NEED TO TEST WITH NOT
-    // function isOnPointss(euint32 lat, euint32 lng, Location memory location) internal view returns (bool) {
-    //     ebool isLatSouth = TFHE.ge(lat, location.southLat);
-    //     ebool isLatNorth = TFHE.le(lat, location.northLat);
-
-    //     ebool isErrorLatSouth = TFHE.not(isLatSouth);
-    //     ebool isErrorLatNorth = TFHE.not(isLatNorth);
-
-    //     ebool isLngWest = TFHE.ge(lng, location.westLon);
-    //     ebool isLngEast = TFHE.le(lng, location.eastLon);
-    //     ebool isErrorLngWest = TFHE.not(isLngWest);
-    //     ebool isErrorLngEast = TFHE.not(isLngEast);
-
-    //     ebool compareLat = TFHE.and(isErrorLatSouth, isErrorLatNorth);
-    //     ebool compareLng = TFHE.and(isErrorLngWest, isErrorLngEast);
-
-    //     return TFHE.decrypt(TFHE.and(compareLat, compareLng));
-    // }
-
-    // A TESTER ENCORE CAR LE RESULTAT N'EST PAS CELUI VOULUS (PROBLEME BIT ZAMA)
-    // function isOnPoint(euint32 lat, euint32 lng, Location memory location) internal view returns (uint8) {
-    //     ebool isLatSouth = TFHE.ge(lat, location.southLat);
-    //     ebool isLatNorth = TFHE.le(lat, location.northLat);
-
-    //     euint8 isErrorLatSouth = TFHE.cmux(isLatSouth, INSIDE, OUTSIDE);
-    //     euint8 isErrorLatNorth = TFHE.cmux(isLatNorth, INSIDE, OUTSIDE);
-
-    //     ebool isLngWest = TFHE.ge(lng, location.westLon);
-    //     ebool isLngEast = TFHE.le(lng, location.eastLon);
-    //     euint8 isErrorLngWest = TFHE.cmux(isLngWest, INSIDE, OUTSIDE);
-    //     euint8 isErrorLngEast = TFHE.cmux(isLngEast, INSIDE, OUTSIDE);
-
-    //     euint8 compareLat = TFHE.and(isErrorLatSouth, isErrorLatNorth);
-    //     euint8 compareLng = TFHE.and(isErrorLngWest, isErrorLngEast);
-
-    //     return TFHE.decrypt(TFHE.and(compareLat, compareLng));
-    // }
-
-    //THIS FUNCTION WORK CORRECTLY
-    function isOnPoint(euint32 lat, euint32 lng, Location memory location) internal view returns (bool) {
-        ebool isLatSouth = TFHE.ge(lat, location.southLat); //if lat >= location.southLat
-        ebool isLatNorth = TFHE.le(lat, location.northLat); // if lat <= location.northLat
-        euint8 isInsideLatSouth = TFHE.cmux(isLatSouth, INSIDE, OUTSIDE); // if latSouth is true then return true else return false
-        euint8 isInsideLatNorth = TFHE.cmux(isLatNorth, INSIDE, OUTSIDE); // if latNorth is true then return true else return false
-
-        ebool isLngWest = TFHE.ge(lng, location.westLon);
-        ebool isLngEast = TFHE.le(lng, location.eastLon);
-        euint8 isInsideLngWest = TFHE.cmux(isLngWest, INSIDE, OUTSIDE);
-        euint8 isInsideLngEast = TFHE.cmux(isLngEast, INSIDE, OUTSIDE);
-
-        euint8 isInsideLat = isInsideLatSouth + isInsideLatNorth; // additionnal uint8 to have a boolean value with 0 or 1
-        euint8 isInsideLng = isInsideLngWest + isInsideLngEast;
-
-        euint8 isInside = isInsideLat + isInsideLng; // Additionnal global sum
-
-        return TFHE.decrypt(TFHE.eq(isInside, INSIDE)); // Check if sumBlobal is equal 0 (inside gps)
     }
 
     /**
