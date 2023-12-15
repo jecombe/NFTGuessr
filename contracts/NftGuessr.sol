@@ -453,23 +453,25 @@ contract NftGuessr is ERC721Enumerable, Ownable {
         return false;
     }
 
-    // Internal function to check if a given set of coordinates is within a location.
-    function isOnPoint(euint32 lat, euint32 lng, Location memory location) internal view returns (uint8) {
-        ebool isLatSouth = TFHE.ge(lat, location.southLat);
-        ebool isLatNorth = TFHE.le(lat, location.northLat);
-        euint8 isErrorLatSouth = TFHE.cmux(isLatSouth, NO_ERROR, ERROR);
-        euint8 isErrorLatNorth = TFHE.cmux(isLatNorth, NO_ERROR, ERROR);
+    // function isOnPoint(euint32 lat, euint32 lng, Location memory location) internal view returns (bool) {
+    //     ebool isLatSouth = TFHE.ge(lat, location.southLat);
+    //     ebool isLatNorth = TFHE.le(lat, location.northLat);
 
-        ebool isLngWest = TFHE.ge(lng, location.westLon);
-        ebool isLngEast = TFHE.le(lng, location.eastLon);
-        euint8 isErrorLngWest = TFHE.cmux(isLngWest, NO_ERROR, ERROR);
-        euint8 isErrorLngEast = TFHE.cmux(isLngEast, NO_ERROR, ERROR);
+    //     euint8 isErrorLatSouth = TFHE.cmux(isLatSouth, NO_ERROR, ERROR);
+    //     euint8 isErrorLatNorth = TFHE.cmux(isLatNorth, NO_ERROR, ERROR);
 
-        return
-            TFHE.decrypt(
-                TFHE.and(TFHE.and(isErrorLatSouth, isErrorLatNorth), TFHE.and(isErrorLngWest, isErrorLngEast))
-            );
-    }
+    //     ebool isLngWest = TFHE.ge(lng, location.westLon);
+    //     ebool isLngEast = TFHE.le(lng, location.eastLon);
+    //     euint8 isErrorLngWest = TFHE.cmux(isLngWest, NO_ERROR, ERROR);
+    //     euint8 isErrorLngEast = TFHE.cmux(isLngEast, NO_ERROR, ERROR);
+
+    //     euint8 sumLat = TFHE.add(isErrorLatSouth, isErrorLatNorth);
+    //     euint8 sumLng = TFHE.add(isErrorLngWest, isErrorLngEast);
+
+    //     euint8 sumGlobal = TFHE.add(sumLat, sumLng);
+
+    //     return TFHE.decrypt(TFHE.eq(sumGlobal, NO_ERROR));
+    // }
 
     /************************ GAMING FUNCTIONS *************************/
 
@@ -549,6 +551,52 @@ contract NftGuessr is ERC721Enumerable, Ownable {
         }
     }
 
+    // function isOnPoint(euint32 lat, euint32 lng, Location memory location) internal view returns (bool) {
+    //     return (TFHE.decrypt(TFHE.ge(lat, location.southLat)) &&
+    //         TFHE.decrypt(TFHE.le(lat, location.northLat)) &&
+    //         TFHE.decrypt(TFHE.ge(lng, location.westLon)) &&
+    //         TFHE.decrypt(TFHE.le(lng, location.eastLon)));
+    // }
+
+    function isOnPoint(euint32 lat, euint32 lng, Location memory location) internal view returns (bool) {
+        ebool isLatSouth = TFHE.ge(lat, location.southLat);
+        ebool isLatNorth = TFHE.le(lat, location.northLat);
+
+        euint8 isErrorLatSouth = TFHE.cmux(isLatSouth, NO_ERROR, ERROR);
+        euint8 isErrorLatNorth = TFHE.cmux(isLatNorth, NO_ERROR, ERROR);
+
+        ebool isLngWest = TFHE.ge(lng, location.westLon);
+        ebool isLngEast = TFHE.le(lng, location.eastLon);
+        euint8 isErrorLngWest = TFHE.cmux(isLngWest, NO_ERROR, ERROR);
+        euint8 isErrorLngEast = TFHE.cmux(isLngEast, NO_ERROR, ERROR);
+
+        euint8 sumLat = TFHE.add(isErrorLatSouth, isErrorLatNorth);
+        euint8 sumLng = TFHE.add(isErrorLngWest, isErrorLngEast);
+
+        euint8 sumGlobal = TFHE.add(sumLat, sumLng);
+
+        return TFHE.decrypt(TFHE.eq(sumGlobal, NO_ERROR));
+    }
+
+    // A TESTER ENCORE CAR LE RESULTAT N'EST PAS CELUI VOULUS
+    // function isOnPoint(euint32 lat, euint32 lng, Location memory location) internal view returns (uint8) {
+    //     ebool isLatSouth = TFHE.ge(lat, location.southLat);
+    //     ebool isLatNorth = TFHE.le(lat, location.northLat);
+
+    //     euint8 isErrorLatSouth = TFHE.cmux(isLatSouth, NO_ERROR, ERROR);
+    //     euint8 isErrorLatNorth = TFHE.cmux(isLatNorth, NO_ERROR, ERROR);
+
+    //     ebool isLngWest = TFHE.ge(lng, location.westLon);
+    //     ebool isLngEast = TFHE.le(lng, location.eastLon);
+    //     euint8 isErrorLngWest = TFHE.cmux(isLngWest, NO_ERROR, ERROR);
+    //     euint8 isErrorLngEast = TFHE.cmux(isLngEast, NO_ERROR, ERROR);
+
+    //     euint8 compareLat = TFHE.and(isErrorLatSouth, isErrorLatNorth);
+    //     euint8 compareLng = TFHE.and(isErrorLngWest, isErrorLngEast);
+
+    //     return TFHE.decrypt(TFHE.and(compareLat, compareLng));
+    // }
+
     /**
      * @dev Checks GPS coordinates against a specified location's coordinates.
      * @param userLatitude The latitude of the user's location.
@@ -574,8 +622,8 @@ contract NftGuessr is ERC721Enumerable, Ownable {
 
         require(_tokenId <= totalSupply, "Your token id is invalid");
         require(isLocationValid(_tokenId), "Location does not valid");
-
-        if (isOnPoint(lat, lng, locations[_tokenId]) == 0) {
+        if (isOnPoint(lat, lng, locations[_tokenId])) {
+            //if (TFHE.decrypt(TFHE.eq(isOnPoint(lat, lng, locations[_tokenId]), NO_ERROR))) {
             require(ownerOf(_tokenId) != msg.sender, "you are the owner");
             require(!isStake[_tokenId], "NFT is stake"); // prevent
             require(getAddressCreationWithToken(_tokenId) != msg.sender, "you are the creator !");

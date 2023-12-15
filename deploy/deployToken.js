@@ -1,5 +1,5 @@
 const main = async () => {
-  const deployedContract = await ethers.deployContract("CoinSpace", ["0xc82039BbaE11C8fa14873f6C5926356487638Fe4"]);
+  const deployedContract = await ethers.deployContract("CoinSpace", ["0x2163f47c875DcB78Ce6720e32d1bB99074DCCeC2"]);
 
   await deployedContract.waitForDeployment();
 
