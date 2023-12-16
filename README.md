@@ -15,7 +15,7 @@ If you have found it, you win the NFT and 2 ERC20 SpaceCoin (SPC).
 Four options are available to you:
 
 - 💼 just hold your NFTs in your wallet.
-- 🔄 Either you put the NFT GSP back into play with your tax for one round.
+- 🔄 Either you put the NFT GSP back into play with your ZAMA tax for one round.
 - 🎁 Stake one or more NFTs GSP to have SpaceCoin daily reward (actually 1 SPC).
 - 🔓 Stake minimum 3 NFTs GSP to unlock the right to create NFTs (Cost: 1 SPC) for the game, including a ZAMA tax valid
   for one game round.
