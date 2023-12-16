@@ -686,7 +686,7 @@ contract NftGuessr is ERC721Enumerable, Ownable {
         delete creatorNft[actualOwner];
         delete tokenCreationAddress[tokenId];
         delete isStake[tokenId];
-
+        delete stakersRewards[actualOwner];
         _burn(tokenId);
     }
 }
