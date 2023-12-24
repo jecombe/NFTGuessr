@@ -31,6 +31,7 @@ const chainIds = {
   avalanche: 43114,
   bsc: 56,
   fhenix: 5432,
+  inco: 9090,
   ganache: 1337,
   hardhat: 31337,
   mainnet: 1,
@@ -57,6 +58,9 @@ function getChainConfig(chain: keyof typeof chainIds): NetworkUserConfig {
       break;
     case "fhenix":
       jsonRpcUrl = "https://fhenode.fhenix.io/new/evm";
+      break;
+    case "inco":
+      jsonRpcUrl = "https://evm-rpc.inco.network/";
       break;
     default:
       jsonRpcUrl = "https://" + chain + ".infura.io/v3/" + infuraApiKey;
@@ -119,6 +123,7 @@ const config: HardhatUserConfig = {
     sepolia: getChainConfig("sepolia"),
     zama: getChainConfig("zama"),
     fhenix: getChainConfig("fhenix"),
+    inco: getChainConfig("inco"),
     local: getChainConfig("local"),
   },
   paths: {

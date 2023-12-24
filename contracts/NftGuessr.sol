@@ -139,22 +139,22 @@ contract NftGuessr is ERC721Enumerable, Ownable {
     }
 
     // Function to get the location of an NFT for owner smart contract using decrypted coordinates.
-    function getNFTLocation(uint256 tokenId) external view onlyOwner returns (NFTLocation memory) {
-        return getLocation(locations[tokenId]);
+    function getNFTLocation(uint256 tokenId, bytes32 publicKey) external view onlyOwner returns (NFTLocation memory) {
+        return getLocation(locations[tokenId], publicKey);
     }
 
     // Function to get the location of an NFT for owner using decrypted coordinates.
-    function getNFTLocationForOwner(uint256 tokenId) external view returns (NFTLocation memory) {
+    function getNFTLocationForOwner(uint256 tokenId, bytes32 publicKey) external view returns (NFTLocation memory) {
         address stakeAddr = getAddressStakeWithToken(tokenId); // Check if user is staker
         address resetAddr = getAddressResetWithToken(tokenId); // Check if user is reset (back in game) nft
         address creaAddr = getAddressCreationWithToken(tokenId); // Check if user is the creator
 
         if (ownerOf(tokenId) == msg.sender) {
-            return getLocation(locations[tokenId]);
+            return getLocation(locations[tokenId], publicKey);
         } else if (stakeAddr == msg.sender) {
-            return getLocation(locations[tokenId]);
+            return getLocation(locations[tokenId], publicKey);
         } else if (resetAddr == msg.sender || creaAddr == msg.sender) {
-            return getLocation(locations[tokenId]);
+            return getLocation(locations[tokenId], publicKey);
         } else revert("your are not the owner");
     }
 
@@ -302,15 +302,10 @@ contract NftGuessr is ERC721Enumerable, Ownable {
     }
 
     // Internal function to get strcture result get Location decrypt
-    function getLocation(Location memory _location) internal view returns (NFTLocation memory) {
-        uint32 northLat = TFHE.decrypt(_location.northLat);
-        uint32 southLat = TFHE.decrypt(_location.southLat);
-        uint32 eastLon = TFHE.decrypt(_location.eastLon);
-        uint32 westLon = TFHE.decrypt(_location.westLon);
-        uint lat = TFHE.decrypt(_location.lat);
-        uint lng = TFHE.decrypt(_location.lng);
-        NFTLocation memory nftLocation = NFTLocation(northLat, southLat, eastLon, westLon, lat, lng);
-        return nftLocation;
+    function getLocation(Location memory _location, bytes32 publicKey) internal view returns (NFTLocation memory) {
+        bytes memory lat = TFHE.reencrypt(_location.lat, publicKey, 0);
+        bytes memory lng = TFHE.reencrypt(_location.lng, publicKey, 0);
+        return NFTLocation(lat, lng);
     }
 
     // Internal function internal to check if location does exist for creation
@@ -453,43 +448,16 @@ contract NftGuessr is ERC721Enumerable, Ownable {
         return false;
     }
 
-    // A TESTER ENCORE CAR LE RESULTAT N'EST PAS CELUI VOULUS (PROBLEME BIT ZAMA)
-    // function isOnPoints(euint32 lat, euint32 lng, Location memory location) internal view returns (uint8) {
-    //     ebool isLatSouth = TFHE.ge(lat, location.southLat);
-    //     ebool isLatNorth = TFHE.le(lat, location.northLat);
-
-    //     euint8 isErrorLatSouth = TFHE.cmux(isLatSouth, INSIDE, OUTSIDE);
-    //     euint8 isErrorLatNorth = TFHE.cmux(isLatNorth, INSIDE, OUTSIDE);
-
-    //     ebool isLngWest = TFHE.ge(lng, location.westLon);
-    //     ebool isLngEast = TFHE.le(lng, location.eastLon);
-    //     euint8 isErrorLngWest = TFHE.cmux(isLngWest, INSIDE, OUTSIDE);
-    //     euint8 isErrorLngEast = TFHE.cmux(isLngEast, INSIDE, OUTSIDE);
-
-    //     euint8 compareLat = TFHE.and(isErrorLatSouth, isErrorLatNorth);
-    //     euint8 compareLng = TFHE.and(isErrorLngWest, isErrorLngEast);
-
-    //     return TFHE.decrypt(TFHE.and(compareLat, compareLng));
-    // }
-
-    //THIS FUNCTION WORK CORRECTLY
     function isOnPoint(euint32 lat, euint32 lng, Location memory location) internal view returns (bool) {
-        ebool isLatSouth = TFHE.ge(lat, location.southLat); //if lat >= location.southLat
-        ebool isLatNorth = TFHE.le(lat, location.northLat); // if lat <= location.northLat
-        euint8 isInsideLatSouth = TFHE.cmux(isLatSouth, INSIDE, OUTSIDE); // if latSouth is true then return true else return false
-        euint8 isInsideLatNorth = TFHE.cmux(isLatNorth, INSIDE, OUTSIDE); // if latNorth is true then return true else return false
+        ebool isLatSouth = TFHE.ge(lat, location.southLat); //if lat >= location.southLat => true if correct
+        ebool isLatNorth = TFHE.le(lat, location.northLat); // if lat <= location.northLat => true if correct
+        ebool isLatValid = TFHE.and(isLatSouth, isLatNorth);
 
-        ebool isLngWest = TFHE.ge(lng, location.westLon);
-        ebool isLngEast = TFHE.le(lng, location.eastLon);
-        euint8 isInsideLngWest = TFHE.cmux(isLngWest, INSIDE, OUTSIDE);
-        euint8 isInsideLngEast = TFHE.cmux(isLngEast, INSIDE, OUTSIDE);
+        ebool isLngWest = TFHE.ge(lng, location.westLon); // true if correct
+        ebool isLngEast = TFHE.le(lng, location.eastLon); // true if correct
+        ebool isLngValid = TFHE.and(isLngWest, isLngEast);
 
-        euint8 isInsideLat = isInsideLatSouth + isInsideLatNorth; // additionnal uint8 to have a boolean value with 0 or 1
-        euint8 isInsideLng = isInsideLngWest + isInsideLngEast;
-
-        euint8 isInside = isInsideLat + isInsideLng; // Additionnal global sum
-
-        return TFHE.decrypt(TFHE.eq(isInside, INSIDE)); // Check if sumBlobal is equal 0 (inside gps)
+        return TFHE.decrypt(TFHE.and(isLngValid, isLatValid)); // Check if lat AND long are valid
     }
 
     /************************ GAMING FUNCTIONS *************************/
@@ -596,7 +564,6 @@ contract NftGuessr is ERC721Enumerable, Ownable {
         require(_tokenId <= totalSupply, "Your token id is invalid");
         require(isLocationValid(_tokenId), "Location does not valid");
         if (isOnPoint(lat, lng, locations[_tokenId])) {
-            //if (TFHE.decrypt(TFHE.eq(isOnPoint(lat, lng, locations[_tokenId]), NO_ERROR))) {
             require(ownerOf(_tokenId) != msg.sender, "you are the owner");
             require(!isStake[_tokenId], "NFT is stake"); // prevent
             require(getAddressCreationWithToken(_tokenId) != msg.sender, "you are the creator !");
