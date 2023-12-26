@@ -370,7 +370,7 @@ contract NftGuessr is ERC721Enumerable, Ownable {
             setDataForMinting(tokenId, feesData[i], locate);
             _mint(_owner, tokenId);
 
-            emit createNFT(_owner, tokenId, feesData[i]);
+            emit createNFT(msg.sender, tokenId, feesData[i]);
         }
     }
 
