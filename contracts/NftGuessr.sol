@@ -49,9 +49,6 @@ contract NftGuessr is ERC721Enumerable, Ownable {
     uint256 public fees = 1 ether; // Fees (Zama) base
     uint256 public feesCreation = 1; // Fees (SPC) nft creation Geospace
 
-    /* ERROR */
-    euint8 internal INSIDE; // To check if error is present for checkGps
-    euint8 internal OUTSIDE; // To check if error is not present for checkGps
     /* ERC20 */
     CoinSpace private coinSpace; // CoinSpace interface token Erc20
     uint256 public amountMintErc20 = 2; // Number of mint token  when user call createGpsForOwner.
@@ -83,8 +80,6 @@ contract NftGuessr is ERC721Enumerable, Ownable {
     // Contract constructor initializes base token URI and owner.
     constructor() ERC721("GeoSpace", "GSP") {
         _baseTokenURI = "";
-        INSIDE = TFHE.asEuint8(0);
-        OUTSIDE = TFHE.asEuint8(1);
         contractOwner = msg.sender;
     }
 
