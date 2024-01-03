@@ -86,7 +86,7 @@ contract NftGuessr is ERC721Enumerable, Ownable {
 
     // Check if user have access
     modifier isAccess() {
-        require(stakeNft[msg.sender].length >= 3, "The owner must stake 3 NFTs to create a new NFT");
+        require(stakeNft[msg.sender].length >= nbNftStake, "The owner must stake 3 NFTs to create a new NFT");
         _;
     }
 
