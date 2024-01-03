@@ -54,7 +54,6 @@ contract NftGuessr is ERC721Enumerable, Ownable {
     uint256 public amountMintErc20 = 2; // Number of mint token  when user call createGpsForOwner.
     uint256 public amountRewardUser = 2; // amount reward winner
     uint256 public amountRewardUsers = 1; // amount reward staker daily 24h.
-
     /* MAPPING */
     mapping(uint256 => Location) internal locations; // Mapping to store NFT locations and non-accessible locations.
     mapping(address => uint256[]) public creatorNft; // To see all NFTsIDs back in game
@@ -443,6 +442,7 @@ contract NftGuessr is ERC721Enumerable, Ownable {
         return false;
     }
 
+    // Internal function to check if user in on nft radius.
     function isOnPoint(euint32 lat, euint32 lng, Location memory location) internal view returns (bool) {
         ebool isLatSouth = TFHE.ge(lat, location.southLat); //if lat >= location.southLat => true if correct
         ebool isLatNorth = TFHE.le(lat, location.northLat); // if lat <= location.northLat => true if correct
@@ -499,8 +499,9 @@ contract NftGuessr is ERC721Enumerable, Ownable {
             tokenStakeAddress[nftId] = msg.sender;
             _transfer(ownerOf(nftId), address(this), nftId);
 
-            if (stakeNft[msg.sender].length >= 1) {
+            if (stakeNft[msg.sender].length >= 1 && !stakersRewards[msg.sender]) {
                 stakersRewards[msg.sender] = true;
+                stakerReward.push(msg.sender);
             }
             emit StakingNFT(msg.sender, nftId, block.timestamp, true);
         }
