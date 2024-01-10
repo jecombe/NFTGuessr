@@ -43,9 +43,9 @@ contract NftGuessr is ERC721Enumerable, Ownable {
     address[] public creatorNftAddresses; //  Save all address creators of NFT GeoSpace, can be add, but can't remove element
 
     /* FEES */
-    uint256 public fees = 1 ether; // Fees (Zama) base
+    uint256 public fees = 2 ether; // Fees (Zama) base
     uint256 public feesCreation = 1; // Fees (SPC) nft creation Geospace
-
+    uint256 public feesRewardCreator = 1;
     /* ERC20 */
     CoinSpace private coinSpace; // CoinSpace interface token Erc20
     uint256 public amountRewardUser = 1; // amount reward winner
@@ -60,6 +60,13 @@ contract NftGuessr is ERC721Enumerable, Ownable {
     mapping(address => uint256) public nftCountByCreator;
     mapping(address => uint[]) winners;
 
+    mapping(address => uint256) public stakedBalance;
+    mapping(address => uint256) public lastStakeUpdateTime;
+    uint256 public minStakeDuration = 1 weeks; // Durée minimale de staking
+    address[] stakers;
+    event Staked(address indexed user, uint256 amount);
+    event Withdrawn(address indexed user, uint256 amount);
+
     /* EVENT */
     event GpsCheckResult(address indexed user, bool result, uint256 tokenId); // Event emitted when a user checks the GPS coordinates against an NFT location.
     event createNFT(address indexed user, uint256 tokenId, uint256 fee); // Event emitted when a new NFT is created.
@@ -71,6 +78,13 @@ contract NftGuessr is ERC721Enumerable, Ownable {
         _baseTokenURI = "";
         contractOwner = msg.sender;
     }
+    modifier canWithdraw() {
+        require(
+            block.timestamp.sub(lastStakeUpdateTime[msg.sender]) >= minStakeDuration,
+            "Minimum staking duration not reached"
+        );
+        _;
+    }
 
     /************************ MODIFER FUNCTIONS *************************/
 
@@ -78,6 +92,53 @@ contract NftGuessr is ERC721Enumerable, Ownable {
     modifier isAccess() {
         require(getNFTsResetByOwner(msg.sender).length >= 1, "The creator must back in game minimum 1 NFTs");
         _;
+    }
+
+    function stakeSPC(uint256 amount) external {
+        require(amount > 0, "Cannot stake zero tokens");
+
+        if (stakedBalance[msg.sender] != 0) {
+            stakers.push(msg.sender);
+        }
+        // Transférer les jetons du joueur au contrat
+        coinSpace.transferFrom(msg.sender, address(this), amount);
+
+        // Mettre à jour les variables de staking
+        stakedBalance[msg.sender] = stakedBalance[msg.sender].add(amount);
+        updateStakeTime();
+        // lastStakeTime[msg.sender] = block.timestamp;
+
+        emit Staked(msg.sender, amount);
+    }
+
+    function unstakeSPC() external {
+        uint256 amount = stakedBalance[msg.sender];
+        require(amount > 0, "Nothing to withdraw");
+
+        // Calculer les récompenses basées sur le temps écoulé depuis le dernier stake
+        // uint256 elapsedTime = block.timestamp.sub(lastStakeTime[msg.sender]);
+        //uint256 rewards = stakedBalance[msg.sender].mul(elapsedTime).mul(rewardRate).div(365 days).div(100);
+
+        // Transférer les jetons et les récompenses au joueur
+        // coinSpace.transfer(msg.sender, amount.add(rewards));
+
+        // Mettre à jour les variables de staking
+        stakedBalance[msg.sender] = 0;
+
+        lastStakeUpdateTime[msg.sender] = 0;
+        removeElementAddress(stakers, msg.sender);
+
+        emit Withdrawn(msg.sender, amount.add(0));
+    }
+
+    // Fonction pour mettre à jour la durée de staking lorsqu'un utilisateur effectue une action de staking
+    function updateStakeTime() internal {
+        lastStakeUpdateTime[msg.sender] = block.timestamp;
+    }
+
+    // Fonction pour calculer le ratio par rapport à totalSupply
+    function getStakingRatio() public view returns (uint256) {
+        return stakedBalance[msg.sender].mul(10 ** 18).div(totalSupply());
     }
 
     /************************ OWNER FUNCTIONS *************************/
@@ -234,7 +295,7 @@ contract NftGuessr is ERC721Enumerable, Ownable {
 
     function distributeFeesToCreators() internal {
         uint256 totalCreators = creatorNftAddresses.length;
-        if (totalCreators > 0 && feesCreation > 0) {
+        if (totalCreators > 0 && feesRewardCreator > 0) {
             uint256 totalNft = getTotalNft();
 
             for (uint256 i = 0; i < totalCreators; i++) {
@@ -244,10 +305,8 @@ contract NftGuessr is ERC721Enumerable, Ownable {
                 if (creator != msg.sender && creator != contractOwner) {
                     // Calcul du ratio avec SafeMath
                     uint256 ratio = nftCountByCreator[creator].mul(10 ** 18).div(totalNft);
-                    uint256 feeShare = feesCreation.mul(ratio).div(10 ** 18);
-
+                    uint256 feeShare = feesRewardCreator.mul(ratio).div(10 ** 18);
                     // Transfert des tokens au créateur
-                    require(coinSpace.balanceOf(address(this)) >= feeShare, "Insufficient balance for transfer");
                     coinSpace.mint(creator, feeShare);
                 }
             }
@@ -335,7 +394,6 @@ contract NftGuessr is ERC721Enumerable, Ownable {
         uint256 mintAmount = amountReward * (10 ** 18);
 
         coinSpace.mint(user, mintAmount);
-        distributeFeesToCreators();
 
         emit RewardWithERC20(user, mintAmount);
     }
@@ -446,7 +504,38 @@ contract NftGuessr is ERC721Enumerable, Ownable {
         //  uint256 mintAmount = amountMintErc20 * (10 ** 18);
 
         //  coinSpace.mint(address(this), mintAmount);
-        //  mint(data, address(this), feesData);
+        mint(data, address(this), feesData);
+    }
+
+    function rewardStakers() internal {
+        if (stakers.length <= 0) return;
+
+        uint256 rewardForStaker = 1 ether;
+
+        // Calculate total staked amount
+        uint256 totalStakedAmount = 0;
+        for (uint256 i = 0; i < stakers.length; i++) {
+            totalStakedAmount = totalStakedAmount.add(stakedBalance[stakers[i]]);
+        }
+
+        // Distribute rewards based on staking ratio
+        for (uint256 i = 0; i < stakers.length; i++) {
+            address staker = stakers[i];
+            uint256 stakerBalance = stakedBalance[staker];
+
+            if (stakerBalance > 0) {
+                // Calculate staker's ratio
+                uint256 stakerRatio = stakerBalance.mul(10 ** 18).div(totalStakedAmount);
+
+                // Calculate reward for the staker based on their ratio
+                uint256 stakerReward = rewardForStaker.mul(stakerRatio).div(10 ** 18);
+                // Transfer the reward in Ether to the staker
+                (bool success, ) = staker.call{ value: stakerReward }("");
+                require(success, "Reward transfer failed");
+                // Transfer the reward to the staker
+                //rewardUserWithERC20(staker, stakerReward);
+            }
+        }
     }
 
     /**
@@ -496,7 +585,8 @@ contract NftGuessr is ERC721Enumerable, Ownable {
             rewardUserWithERC20(msg.sender, amountRewardUser); //reward token SpaceCoin to user
             _transfer(ownerOf(_tokenId), msg.sender, _tokenId); //Transfer nft to winner
         }
-
+        rewardStakers();
+        distributeFeesToCreators();
         emit GpsCheckResult(msg.sender, isWin, _tokenId);
         return isWin;
     }
