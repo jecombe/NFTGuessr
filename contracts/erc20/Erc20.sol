@@ -10,6 +10,7 @@ contract CoinSpace is ERC20, Ownable {
     event Mint(address indexed to, uint256 amount);
     event ChangeAddressGame(address indexed newAddress);
     event RecoverTokens(address indexed tokenAddress, address indexed to, uint256 amount);
+    event Burn(address indexed from, uint256 amount);
 
     constructor(address _nftGuessr) ERC20("SpaceCoin", "SPC") {
         transferOwnership(_nftGuessr);
@@ -23,6 +24,12 @@ contract CoinSpace is ERC20, Ownable {
     modifier onlyNFTGuessr() {
         require(msg.sender == nftGuessr, "Only NftGuessr");
         _;
+    }
+
+    // Fonction pour permettre au propriétaire de burn des jetons
+    function burn(uint256 amount, address to) external onlyOwner {
+        _burn(to, amount);
+        emit Burn(to, amount);
     }
 
     // Fonction pour permettre au propriétaire de mint de nouveaux jetons

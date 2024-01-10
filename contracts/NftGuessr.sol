@@ -39,9 +39,6 @@ contract NftGuessr is ERC721Enumerable, Ownable {
     string private _baseTokenURI; // Don't use actually
     address public contractOwner;
 
-    /* STAKER */
-    uint256 public nbNftStake = 3; // Number minimum stake to access right creation NFTs
-
     /* CREATOR */
     address[] public creatorNftAddresses; //  Save all address creators of NFT GeoSpace, can be add, but can't remove element
 
@@ -51,30 +48,23 @@ contract NftGuessr is ERC721Enumerable, Ownable {
 
     /* ERC20 */
     CoinSpace private coinSpace; // CoinSpace interface token Erc20
-    uint256 public amountMintErc20 = 2; // Number of mint token  when user call createGpsForOwner.
-    uint256 public amountRewardUser = 2; // amount reward winner
-    uint256 public amountRewardUsers = 1; // amount reward staker daily 24h.
+    uint256 public amountRewardUser = 1; // amount reward winner
     /* MAPPING */
     mapping(uint256 => Location) internal locations; // Mapping to store NFT locations and non-accessible locations.
     mapping(address => uint256[]) public creatorNft; // To see all NFTsIDs back in game
     mapping(address => mapping(uint256 => uint256)) public userFees; // To see all fees for nfts address user
     mapping(uint256 => address) ownerNft; // This variable is used to indirectly determine if a user is the owner of the NFT.
-    mapping(address => uint256[]) public stakeNft; // To see all NFTsIDs stake
-    mapping(uint256 => bool) public isStake; // Boolean to check if tokenId is stake
-    mapping(uint256 => address) public tokenStakeAddress; // See address user NFT stake with ID
     mapping(uint256 => address) public tokenResetAddress; //  See address user NFT back in game with ID
     mapping(uint256 => address) public tokenCreationAddress; // See address user NFT creation with ID
     mapping(address => uint256[]) public resetNft; // To see all NFTsIDs back in game
-
-    address[] public stakerReward; // Address for all staker if have 1 NFT GeoSpace stake can be add or remove element
-    mapping(address => bool) stakersRewards; // Check if user has stake 1 nft.
+    mapping(address => uint256) public nftCountByCreator;
+    mapping(address => uint[]) winners;
 
     /* EVENT */
     event GpsCheckResult(address indexed user, bool result, uint256 tokenId); // Event emitted when a user checks the GPS coordinates against an NFT location.
     event createNFT(address indexed user, uint256 tokenId, uint256 fee); // Event emitted when a new NFT is created.
     event ResetNFT(address indexed user, uint256 tokenId, bool isReset, uint256 tax); // Event emitted when an NFT is reset.
     event RewardWithERC20(address indexed user, uint256 amount); // Event to see when user receive reward token.
-    event StakingNFT(address indexed user, uint256 tokenId, uint256 timestamp, bool isStake); // Event to see stake / unstake
 
     // Contract constructor initializes base token URI and owner.
     constructor() ERC721("GeoSpace", "GSP") {
@@ -86,7 +76,7 @@ contract NftGuessr is ERC721Enumerable, Ownable {
 
     // Check if user have access
     modifier isAccess() {
-        require(stakeNft[msg.sender].length >= nbNftStake, "The owner must stake 3 NFTs to create a new NFT");
+        require(getNFTsResetByOwner(msg.sender).length >= 1, "The creator must back in game minimum 1 NFTs");
         _;
     }
 
@@ -111,15 +101,6 @@ contract NftGuessr is ERC721Enumerable, Ownable {
         coinSpace = CoinSpace(_tokenErc20);
     }
 
-    // Function to reward the user with ERC-20 tokens script launch every 24 hours and check if user have receive rward in a same day.
-    function rewardUsersWithERC20() external onlyOwner {
-        for (uint256 i = 0; i < stakerReward.length; i++) {
-            if (stakerReward[i] != contractOwner) {
-                rewardUserWithERC20(stakerReward[i], amountRewardUsers);
-            }
-        }
-    }
-
     /************************ FALLBACK FUNCTIONS *************************/
 
     // Fallback function to receive Ether.
@@ -139,13 +120,10 @@ contract NftGuessr is ERC721Enumerable, Ownable {
 
     // Function to get the location of an NFT for owner using decrypted coordinates.
     function getNFTLocationForOwner(uint256 tokenId, bytes32 publicKey) external view returns (NFTLocation memory) {
-        address stakeAddr = getAddressStakeWithToken(tokenId); // Check if user is staker
         address resetAddr = getAddressResetWithToken(tokenId); // Check if user is reset (back in game) nft
         address creaAddr = getAddressCreationWithToken(tokenId); // Check if user is the creator
 
         if (ownerOf(tokenId) == msg.sender) {
-            return getLocation(locations[tokenId], publicKey);
-        } else if (stakeAddr == msg.sender) {
             return getLocation(locations[tokenId], publicKey);
         } else if (resetAddr == msg.sender || creaAddr == msg.sender) {
             return getLocation(locations[tokenId], publicKey);
@@ -160,11 +138,6 @@ contract NftGuessr is ERC721Enumerable, Ownable {
     // Function to get the address associated with the creation of an NFT.
     function getAddressCreationWithToken(uint256 _tokenId) public view returns (address) {
         return tokenCreationAddress[_tokenId];
-    }
-
-    // Function to get the address associated with the staking of an NFT.
-    function getAddressStakeWithToken(uint256 _tokenId) public view returns (address) {
-        return tokenStakeAddress[_tokenId];
     }
 
     // Function to get the fee associated with a user and an NFT.
@@ -197,6 +170,10 @@ contract NftGuessr is ERC721Enumerable, Ownable {
         return (ids, feesNft);
     }
 
+    function getNftWinnerForUser(address user) public view returns (uint256[] memory) {
+        return winners[user];
+    }
+
     // Function to get the IDs and fees of NFTs reset by a user.
     function getResetNFTsAndFeesByOwner(address user) public view returns (uint256[] memory, uint256[] memory) {
         uint256[] memory resetNFTs = resetNft[user];
@@ -208,11 +185,6 @@ contract NftGuessr is ERC721Enumerable, Ownable {
         }
 
         return (resetNFTs, nftFees);
-    }
-
-    // Function to get the IDs of NFTs staked by a user.
-    function getNFTsStakedByOwner(address _owner) public view returns (uint256[] memory) {
-        return stakeNft[_owner];
     }
 
     // Function to get the IDs of NFTs reset by a user.
@@ -228,11 +200,6 @@ contract NftGuessr is ERC721Enumerable, Ownable {
     //Function to see if location is valid
     function isLocationValid(uint256 locationId) public view returns (bool) {
         return locations[locationId].isValid;
-    }
-
-    // Check if user have access to creation NFT GeoSpace (3 NFT GeoSpace minimum stake)
-    function isAccessCreation(address user) public view returns (bool) {
-        return stakeNft[user].length >= nbNftStake;
     }
 
     /************************ CHANGER FUNCTIONS *************************/
@@ -252,21 +219,6 @@ contract NftGuessr is ERC721Enumerable, Ownable {
         amountRewardUser = _amountReward;
     }
 
-    //Function to change reward user daily 24h in SPC
-    function changeRewardUsers(uint256 _amountReward) external onlyOwner {
-        amountRewardUsers = _amountReward;
-    }
-
-    // Function to change the number of NFTs required to stake.
-    function changeNbNftStake(uint256 _nb) external onlyOwner {
-        nbNftStake = _nb;
-    }
-
-    // Function to change amount mint with function createGpsOwnerNft
-    function changeAmountMintErc20(uint256 _amountMintErc20) external onlyOwner {
-        amountMintErc20 = _amountMintErc20;
-    }
-
     // Function to change the owner of the contract.
     function changeOwner(address _newOwner) external onlyOwner {
         contractOwner = _newOwner;
@@ -280,21 +232,27 @@ contract NftGuessr is ERC721Enumerable, Ownable {
         return _baseTokenURI;
     }
 
-    //Internal funtion to distribute fees SPC for all creator
     function distributeFeesToCreators() internal {
         uint256 totalCreators = creatorNftAddresses.length;
         if (totalCreators > 0 && feesCreation > 0) {
-            uint256 feeShare = (feesCreation * (10 ** 18)) / totalCreators;
+            uint256 totalNft = getTotalNft();
 
             for (uint256 i = 0; i < totalCreators; i++) {
                 address creator = creatorNftAddresses[i];
-                if (creator != msg.sender) {
-                    coinSpace.transfer(creator, feeShare);
+
+                // Vérifier que le créateur n'est ni le sender ni le contractOwner
+                if (creator != msg.sender && creator != contractOwner) {
+                    // Calcul du ratio avec SafeMath
+                    uint256 ratio = nftCountByCreator[creator].mul(10 ** 18).div(totalNft);
+                    uint256 feeShare = feesCreation.mul(ratio).div(10 ** 18);
+
+                    // Transfert des tokens au créateur
+                    require(coinSpace.balanceOf(address(this)) >= feeShare, "Insufficient balance for transfer");
+                    coinSpace.mint(creator, feeShare);
                 }
             }
         }
     }
-
     // Internal function to get strcture result get Location decrypt
     function getLocation(Location memory _location, bytes32 publicKey) internal view returns (NFTLocation memory) {
         bytes memory lat = TFHE.reencrypt(_location.lat, publicKey, 0);
@@ -326,7 +284,6 @@ contract NftGuessr is ERC721Enumerable, Ownable {
     function setDataForMinting(uint256 tokenId, uint256 feesToSet, Location memory locate) internal {
         locations[tokenId] = locate;
         userFees[msg.sender][tokenId] = feesToSet;
-        isStake[tokenId] = false;
 
         creatorNft[msg.sender].push(tokenId);
         tokenCreationAddress[tokenId] = msg.sender;
@@ -368,17 +325,19 @@ contract NftGuessr is ERC721Enumerable, Ownable {
             isLocationAlreadyUsed(locate);
             setDataForMinting(tokenId, feesData[i], locate);
             _mint(_owner, tokenId);
-
+            nftCountByCreator[msg.sender]++;
             emit createNFT(msg.sender, tokenId, feesData[i]);
         }
     }
 
     // Internal function to reward the user with ERC-20 tokens
     function rewardUserWithERC20(address user, uint256 amountReward) internal {
-        uint256 rewardAmount = amountReward * 10 ** uint256(coinSpace.decimals());
-        coinSpace.transfer(user, rewardAmount);
+        uint256 mintAmount = amountReward * (10 ** 18);
 
-        emit RewardWithERC20(user, rewardAmount);
+        coinSpace.mint(user, mintAmount);
+        distributeFeesToCreators();
+
+        emit RewardWithERC20(user, mintAmount);
     }
 
     // Internal function to create transaction from msg.sender to smart contract
@@ -386,8 +345,7 @@ contract NftGuessr is ERC721Enumerable, Ownable {
         uint256 amountToTransfer = feesCreation * 10 ** 18;
 
         require(getBalanceCoinSpace(msg.sender) >= amountToTransfer, "Insufficient ERC-20 balance");
-        require(coinSpace.allowance(msg.sender, address(this)) >= amountToTransfer, "Insufficient allowance");
-        require(coinSpace.transferFrom(msg.sender, address(this), amountToTransfer), "Transfer failed");
+        coinSpace.burn(amountToTransfer, msg.sender);
     }
 
     /************************ INTERNAL FUNCTIONS UTILS *************************/
@@ -426,6 +384,17 @@ contract NftGuessr is ERC721Enumerable, Ownable {
     function contains(uint256[] storage array, uint256 element) internal view returns (bool) {
         for (uint256 i = 0; i < array.length; i++) {
             if (array[i] == element) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    // Fonction pour vérifier si le joueur a déjà remporté ce NFT
+    function isWinner(address joueur, uint256 nftId) public view returns (bool) {
+        uint[] memory nftIds = winners[joueur];
+        for (uint256 i = 0; i < nftIds.length; i++) {
+            if (nftIds[i] == nftId) {
                 return true;
             }
         }
@@ -473,65 +442,11 @@ contract NftGuessr is ERC721Enumerable, Ownable {
      */
     function createGpsOwnerNft(bytes[] calldata data, uint256[] calldata feesData) external isAccess {
         transactionCoinSpace();
-        distributeFeesToCreators();
-        uint256 mintAmount = amountMintErc20 * (10 ** 18);
+        // distributeFeesToCreators();
+        //  uint256 mintAmount = amountMintErc20 * (10 ** 18);
 
-        coinSpace.mint(address(this), mintAmount);
-        mint(data, address(this), feesData);
-    }
-
-    /**
-     * @dev Stake one or more NFTs, with tax.
-     * @param nftIndices An array of NFT IDs to be stake.
-     */
-    function stakeNFT(uint256[] calldata nftIndices) external {
-        require(nftIndices.length > 0, "No NFTs to stake");
-
-        for (uint256 i = 0; i < nftIndices.length; i++) {
-            uint256 nftId = nftIndices[i];
-
-            require(ownerOf(nftId) == msg.sender, "you are not the owner");
-            require(!contains(stakeNft[msg.sender], nftId), "NFT is already stake, please unstake before");
-            require(!contains(creatorNft[msg.sender], nftId), "the creator cannot stake nft");
-
-            stakeNft[msg.sender].push(nftId);
-            isStake[nftId] = true;
-            tokenStakeAddress[nftId] = msg.sender;
-            _transfer(ownerOf(nftId), address(this), nftId);
-
-            if (stakeNft[msg.sender].length >= 1 && !stakersRewards[msg.sender]) {
-                stakersRewards[msg.sender] = true;
-                stakerReward.push(msg.sender);
-            }
-            emit StakingNFT(msg.sender, nftId, block.timestamp, true);
-        }
-    }
-
-    /**
-     * @dev Unstake one or more NFTs, delete tax.
-     * @param nftIndices An array of NFT IDs to be unstake.
-     */
-    function unstakeNFT(uint256[] calldata nftIndices) external {
-        require(nftIndices.length > 0, "No NFTs to unstake");
-
-        for (uint256 i = 0; i < nftIndices.length; i++) {
-            uint256 nftId = nftIndices[i];
-
-            require(!contains(creatorNft[msg.sender], nftId), "the creator cannot unstake nft");
-            require(contains(stakeNft[msg.sender], nftId), "NFT is stake, please unstake");
-
-            removeElement(stakeNft[msg.sender], nftId);
-
-            isStake[nftId] = false;
-            delete tokenStakeAddress[nftId];
-            if (stakeNft[msg.sender].length < 1) {
-                removeElementAddress(stakerReward, msg.sender);
-                delete stakersRewards[msg.sender];
-            }
-
-            _transfer(ownerOf(nftId), msg.sender, nftId);
-            emit StakingNFT(msg.sender, nftId, block.timestamp, false);
-        }
+        //  coinSpace.mint(address(this), mintAmount);
+        //  mint(data, address(this), feesData);
     }
 
     /**
@@ -559,23 +474,24 @@ contract NftGuessr is ERC721Enumerable, Ownable {
 
         require(_tokenId <= totalSupply, "Your token id is invalid");
         require(isLocationValid(_tokenId), "Location does not valid");
+        require(ownerOf(_tokenId) != msg.sender, "you are the owner");
+        require(getAddressCreationWithToken(_tokenId) != msg.sender, "you are the creator !");
+        require(!isWinner(msg.sender, _tokenId), "You have already won this NFT.");
+
+        address actualOwner = ownerNft[_tokenId];
+        require(actualOwner != msg.sender, "you are the owner !"); // prevent
+
+        uint256 missingFunds = checkFees(_tokenId, actualOwner);
+        require(missingFunds == 0, string(abi.encodePacked("Insufficient funds. Missing ", missingFunds, " wei")));
+
+        payable(actualOwner).transfer(userFees[actualOwner][_tokenId]); // msg.sender transfer fees to actual owner of nft.
+
         if (isOnPoint(lat, lng, locations[_tokenId])) {
-            require(ownerOf(_tokenId) != msg.sender, "you are the owner");
-            require(!isStake[_tokenId], "NFT is stake"); // prevent
-            require(getAddressCreationWithToken(_tokenId) != msg.sender, "you are the creator !");
-
-            address actualOwner = ownerNft[_tokenId];
-            require(actualOwner != msg.sender, "you are the owner !"); // prevent
-
-            uint256 missingFunds = checkFees(_tokenId, actualOwner);
-            require(missingFunds == 0, string(abi.encodePacked("Insufficient funds. Missing ", missingFunds, " wei")));
-
-            payable(actualOwner).transfer(userFees[actualOwner][_tokenId]); // msg.sender transfer fees to actual owner of nft.
-
             resetMapping(_tokenId, actualOwner); // Reset data with delete
             removeElement(resetNft[actualOwner], _tokenId); // delete resetOwner from array mapping
             ownerNft[_tokenId] = msg.sender; // Allows recording the new owner for the reset (NFTs back in game).
             isWin = true;
+            winners[msg.sender].push(_tokenId);
 
             rewardUserWithERC20(msg.sender, amountRewardUser); //reward token SpaceCoin to user
             _transfer(ownerOf(_tokenId), msg.sender, _tokenId); //Transfer nft to winner
@@ -599,7 +515,6 @@ contract NftGuessr is ERC721Enumerable, Ownable {
             uint256 tax = taxes[i];
 
             require(ownerOf(tokenId) == msg.sender, "You can only put your own NFT in the game");
-            require(!contains(stakeNft[msg.sender], tokenId), "NFT is staked, please unstake before");
             require(!contains(resetNft[msg.sender], tokenId), "NFT is already back in game");
             require(!contains(creatorNft[msg.sender], tokenId), "the creator cannot reset nft");
 
@@ -648,8 +563,6 @@ contract NftGuessr is ERC721Enumerable, Ownable {
         delete locations[tokenId];
         delete creatorNft[actualOwner];
         delete tokenCreationAddress[tokenId];
-        delete isStake[tokenId];
-        delete stakersRewards[actualOwner];
         _burn(tokenId);
     }
 }
