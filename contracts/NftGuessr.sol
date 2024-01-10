@@ -95,40 +95,42 @@ contract NftGuessr is ERC721Enumerable, Ownable {
     }
 
     function stakeSPC(uint256 amount) external {
-        require(amount > 0, "Cannot stake zero tokens");
+        require(amount > 0, "cannot stake with 0 token");
 
-        if (stakedBalance[msg.sender] != 0) {
+        // En supposant que coinSpace soit un jeton ERC-20 avec une fonction approve
+        // L'utilisateur doit d'abord approuver le contrat à dépenser ses jetons
+        require(coinSpace.allowance(msg.sender, address(this)) >= amount, "echec allowance");
+
+        if (stakedBalance[msg.sender] == 0) {
             stakers.push(msg.sender);
         }
-        // Transférer les jetons du joueur au contrat
-        coinSpace.transferFrom(msg.sender, address(this), amount);
 
-        // Mettre à jour les variables de staking
+        // Transférer les jetons du joueur au contrat
+        require(coinSpace.transferFrom(msg.sender, address(this), amount), "echec");
+
+        // Mettre à jour les variables de mise en jeu
         stakedBalance[msg.sender] = stakedBalance[msg.sender].add(amount);
         updateStakeTime();
-        // lastStakeTime[msg.sender] = block.timestamp;
 
         emit Staked(msg.sender, amount);
     }
 
-    function unstakeSPC() external {
-        uint256 amount = stakedBalance[msg.sender];
-        require(amount > 0, "Nothing to withdraw");
+    function unstakeSPC(uint256 amount) external {
+        require(amount > 0, "nothing to unstake");
+        require(amount <= stakedBalance[msg.sender], "amount > balance stake");
 
         // Calculer les récompenses basées sur le temps écoulé depuis le dernier stake
         // uint256 elapsedTime = block.timestamp.sub(lastStakeTime[msg.sender]);
-        //uint256 rewards = stakedBalance[msg.sender].mul(elapsedTime).mul(rewardRate).div(365 days).div(100);
+        // uint256 rewards = stakedBalance[msg.sender].mul(elapsedTime).mul(rewardRate).div(365 days).div(100);
 
         // Transférer les jetons et les récompenses au joueur
-        // coinSpace.transfer(msg.sender, amount.add(rewards));
 
         // Mettre à jour les variables de staking
-        stakedBalance[msg.sender] = 0;
+        stakedBalance[msg.sender] = stakedBalance[msg.sender].sub(amount);
+        // lastStakeTime[msg.sender] = block.timestamp;
+        coinSpace.transfer(msg.sender, amount); // Ajouter rewards si nécessaire
 
-        lastStakeUpdateTime[msg.sender] = 0;
-        removeElementAddress(stakers, msg.sender);
-
-        emit Withdrawn(msg.sender, amount.add(0));
+        emit Withdrawn(msg.sender, amount);
     }
 
     // Fonction pour mettre à jour la durée de staking lorsqu'un utilisateur effectue une action de staking
