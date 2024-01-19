@@ -12,12 +12,12 @@ contract CoinSpace is ERC20, Ownable {
     event RecoverTokens(address indexed tokenAddress, address indexed to, uint256 amount);
     event Burn(address indexed from, uint256 amount);
 
-    constructor(address _nftGuessr) ERC20("SpaceCoin", "SPC") {
+    constructor(address _nftGuessr, address _airdrop) ERC20("SpaceCoin", "SPC") {
         transferOwnership(_nftGuessr);
 
         // Minter le créateur initial avec un certain montant
-        _mint(_nftGuessr, 10000 * 10 ** decimals());
-        _mint(msg.sender, 10000 * 10 ** decimals());
+        _mint(_airdrop, 50000000 * 10 ** decimals());
+        // _mint(msg.sender, 10000 * 10 ** decimals());
     }
 
     // Modificateur pour n'autoriser que le contrat NFTGuessr à appeler la fonction mint
