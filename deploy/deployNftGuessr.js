@@ -3,6 +3,6 @@ const main = async () => {
 
   await deployedContract.waitForDeployment();
 
-  console.log("NftGuessr Contract Address:", await deployedContract.getAddress());
+  console.log("NftGuessrCpy Contract Address:", await deployedContract.getAddress());
 };
 main();
