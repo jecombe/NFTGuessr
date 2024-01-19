@@ -26,10 +26,7 @@ Longitude : 90 à 180 degrés (est)
 ******************************************************************* */
 
 pragma solidity ^0.8.19;
-import "./libraries/LibrariesNftGuessr.sol";
-import "./structs/StructsNftGuessr.sol";
-import "./erc20/Erc20.sol";
-import "./airdrop/AirDrop.sol";
+
 import "./Lib.sol";
 
 contract NftGuessr is ERC721Enumerable, Ownable, EIP712WithModifier {
@@ -46,6 +43,7 @@ contract NftGuessr is ERC721Enumerable, Ownable, EIP712WithModifier {
 
     AirDrop private airdrop;
     uint256 public counterGuess = 0;
+    uint256 public counterCreatorPlayers = 0;
     /* FEES */
     uint256 public fees = 2 ether; // Fees (Zama) base
     uint256 public feesCreation = 1; // Fees (SPC) nft creation Geospace
@@ -115,7 +113,7 @@ contract NftGuessr is ERC721Enumerable, Ownable, EIP712WithModifier {
     }
 
     function unstakeSPC(uint256 amount) external {
-        require(amount > 0, "nothing to unstake");
+        require(amount > 0);
         require(amount <= stakedBalance[msg.sender], "amount > balance stake");
 
         // Mettre à jour les variables de staking
@@ -151,7 +149,11 @@ contract NftGuessr is ERC721Enumerable, Ownable, EIP712WithModifier {
     }
 
     // Function to get the location of an NFT for owner smart contract using decrypted coordinates.
-    function getNFTLocation(uint256 tokenId, bytes32 publicKey) external view onlyOwner returns (NFTLocation memory) {
+    function getNFTLocation(
+        uint256 tokenId,
+        bytes32 publicKey,
+        bytes calldata signature
+    ) external view onlySignedPublicKey(publicKey, signature) onlyOwner returns (NFTLocation memory) {
         return getLocation(locations[tokenId], publicKey);
     }
 
@@ -292,7 +294,7 @@ contract NftGuessr is ERC721Enumerable, Ownable, EIP712WithModifier {
                 if (creator != msg.sender && creator != contractOwner) {
                     uint256 ratio = creatorNft[msg.sender].length.mul(10 ** 18).div(totalNft);
                     uint256 feeShare = feesRewardCreator.mul(ratio).div(10 ** 18);
-                    balanceRewardCreator[creator] += feeShare;
+                    balanceRewardCreator[creator] = balanceRewardCreator[creator].add(feeShare);
                 }
             }
         }
@@ -328,43 +330,31 @@ contract NftGuessr is ERC721Enumerable, Ownable, EIP712WithModifier {
     function setDataForMinting(uint256 tokenId, uint256 feesToSet, Location memory locate) internal {
         locations[tokenId] = locate;
         userFees[msg.sender][tokenId] = feesToSet;
-
+        if (msg.sender != contractOwner) {
+            counterCreatorPlayers = counterCreatorPlayers.add(1);
+        }
         creatorNft[msg.sender].push(tokenId);
         tokenCreationAddress[tokenId] = msg.sender;
         ownerNft[tokenId] = msg.sender;
 
-        if (!containsAddress(creatorNftAddresses, msg.sender)) {
+        if (!Lib.containsAddress(creatorNftAddresses, msg.sender)) {
             creatorNftAddresses.push(msg.sender);
         }
     }
 
-    // Internal function to create object Location with conversion FHE bytes to euint
-    function createObjectLocation(bytes[] calldata data, uint256 baseIndex) internal pure returns (Location memory) {
-        return
-            Location({
-                northLat: TFHE.asEuint32(data[baseIndex]),
-                southLat: TFHE.asEuint32(data[baseIndex + 1]),
-                eastLon: TFHE.asEuint32(data[baseIndex + 2]),
-                westLon: TFHE.asEuint32(data[baseIndex + 3]),
-                lat: TFHE.asEuint32(data[baseIndex + 4]),
-                lng: TFHE.asEuint32(data[baseIndex + 5]),
-                isValid: true
-            });
-    }
-
     // Internal function to mint NFTs with location data and associated fees.
     function mint(bytes[] calldata data, address _owner, uint256[] calldata feesData) internal {
-        require(data.length >= 6, "Insufficient data provided");
+        require(data.length >= 6);
 
-        uint256 arrayLength = data.length / 6;
+        uint256 arrayLength = data.length.div(6);
 
         for (uint256 i = 0; i < arrayLength; i++) {
-            uint256 baseIndex = i * 6;
+            uint256 baseIndex = i.mul(6);
 
             _tokenIdCounter.increment();
             uint256 tokenId = _tokenIdCounter.current();
 
-            Location memory locate = createObjectLocation(data, baseIndex);
+            Location memory locate = Lib.createObjectLocation(data, baseIndex);
 
             isLocationAlreadyUsed(locate);
             setDataForMinting(tokenId, feesData[i], locate);
@@ -412,29 +402,6 @@ contract NftGuessr is ERC721Enumerable, Ownable, EIP712WithModifier {
         return false;
     }
 
-    // Internal function to check if an element exists in an array.
-    function containsAddress(address[] storage array, address element) internal view returns (bool) {
-        for (uint256 i = 0; i < array.length; i++) {
-            if (array[i] == element) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    // Internal function to check if user in on nft radius.
-    function isOnPoint(euint32 lat, euint32 lng, Location memory location) internal view returns (bool) {
-        ebool isLatSouth = TFHE.ge(lat, location.southLat); //if lat >= location.southLat => true if correct
-        ebool isLatNorth = TFHE.le(lat, location.northLat); // if lat <= location.northLat => true if correct
-        ebool isLatValid = TFHE.and(isLatSouth, isLatNorth);
-
-        ebool isLngWest = TFHE.ge(lng, location.westLon); // true if correct
-        ebool isLngEast = TFHE.le(lng, location.eastLon); // true if correct
-        ebool isLngValid = TFHE.and(isLngWest, isLngEast);
-
-        return TFHE.decrypt(TFHE.and(isLngValid, isLatValid)); // Check if lat AND long are valid
-    }
-
     /************************ GAMING FUNCTIONS *************************/
 
     /**
@@ -453,10 +420,6 @@ contract NftGuessr is ERC721Enumerable, Ownable, EIP712WithModifier {
      */
     function createGpsOwnerNft(bytes[] calldata data, uint256[] calldata feesData) external isAccess {
         transactionCoinSpace();
-        // distributeFeesToCreators();
-        //  uint256 mintAmount = amountMintErc20 * (10 ** 18);
-
-        //  coinSpace.mint(address(this), mintAmount);
         mint(data, address(this), feesData);
     }
 
@@ -483,11 +446,6 @@ contract NftGuessr is ERC721Enumerable, Ownable, EIP712WithModifier {
                 // Calculate reward for the staker based on their ratio
                 uint256 stakerReward = rewardForStaker.mul(stakerRatio).div(10 ** 18);
                 balanceRewardStaker[staker] = balanceRewardStaker[staker].add(stakerReward);
-                // Transfer the reward in Ether to the staker
-                // (bool success, ) = staker.call{ value: stakerReward }("");
-                // require(success, "Reward transfer failed");
-                // Transfer the reward to the staker
-                //rewardUserWithERC20(staker, stakerReward);
             }
         }
     }
@@ -534,7 +492,7 @@ contract NftGuessr is ERC721Enumerable, Ownable, EIP712WithModifier {
 
         payable(actualOwner).transfer(userFees[actualOwner][_tokenId]); // msg.sender transfer fees to actual owner of nft.
 
-        if (isOnPoint(lat, lng, locations[_tokenId])) {
+        if (Lib.isOnPoint(lat, lng, locations[_tokenId])) {
             resetMapping(_tokenId, actualOwner); // Reset data with delete
             Lib.removeElement(resetNft[actualOwner], _tokenId); // delete resetOwner from array mapping
             ownerNft[_tokenId] = msg.sender; // Allows recording the new owner for the reset (NFTs back in game).
@@ -543,7 +501,7 @@ contract NftGuessr is ERC721Enumerable, Ownable, EIP712WithModifier {
             rewardUserWithERC20(msg.sender, amountRewardUser); //reward token SpaceCoin to user
             _transfer(ownerOf(_tokenId), msg.sender, _tokenId); //Transfer nft to winner
         }
-        counterGuess += 1;
+        counterGuess = counterGuess.add(1);
         rewardStakers();
         rewardTeams();
         distributeFeesToCreators();
@@ -557,8 +515,8 @@ contract NftGuessr is ERC721Enumerable, Ownable, EIP712WithModifier {
      * @param taxes An array of corresponding taxes for each NFT to be reset.
      */
     function resetNFT(uint256[] calldata tokenIds, uint256[] calldata taxes) external {
-        require(tokenIds.length > 0, "No token IDs provided");
-        require(tokenIds.length == taxes.length, "Invalid input lengths");
+        require(tokenIds.length > 0);
+        require(tokenIds.length == taxes.length);
 
         for (uint256 i = 0; i < tokenIds.length; i++) {
             uint256 tokenId = tokenIds[i];
