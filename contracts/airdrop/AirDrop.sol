@@ -106,7 +106,7 @@ contract AirDrop is Ownable {
 
         lengthWon[_player] = _nbGuessWon;
 
-        uint256 amountToAirdrop = diff.mul(2).add(8);
+        uint256 amountToAirdrop = diff.mul(2).add(6);
         uint256 checkBalance = balanceAirDropCpy.sub(amountToAirdrop);
 
         if (balanceAirDropCpy > 0 && checkBalance > 0) {

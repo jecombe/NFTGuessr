@@ -1,5 +1,5 @@
 const main = async () => {
-  const deployedContract = await ethers.deployContract("AirDrop", ["0x77eD6de7fb3Ceda55C1a16508236d833e220eF06"]);
+  const deployedContract = await ethers.deployContract("AirDrop", ["0xf1E1676e6222644FED1327D5213E6ac45D7E9FEA"]);
 
   await deployedContract.waitForDeployment();
 

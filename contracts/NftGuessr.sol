@@ -28,26 +28,27 @@ Longitude : 90 à 180 degrés (est)
 pragma solidity ^0.8.19;
 
 import "./libraries/Lib.sol";
+import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
-contract NftGuessr is Ownable {
+contract NftGuessr is Ownable, ReentrancyGuard {
     /* LIBRARIES */
     using Counters for Counters.Counter;
     using SafeMath for uint256;
     using EnumerableSet for EnumerableSet.AddressSet;
 
     Counters.Counter private _tokenIdCounter; // tokenCounter id NFT
+    Counters.Counter private counterGuess;
+    Counters.Counter private counterCreatorPlayers;
+
     EnumerableSet.AddressSet private creatorNftAddresses;
 
     string private _baseTokenURI; // Don't use actually
     address public contractOwner;
-    uint256 public counterGuess = 0;
     uint256 public fees = 2 ether; // Fees (Zama) base
     uint256 public feesCreation = 1; // Fees (SPC) nft creation Geospace
     uint256 public feesRewardCreator = 1;
     uint256 public amountRewardUser = 1; // amount reward winner
     uint256 public balanceTeams = 0;
-    uint256 public counterCreatorPlayers = 0;
-
     address[] stakers;
 
     CoinSpace private coinSpace; // CoinSpace interface token Erc20
@@ -65,8 +66,6 @@ contract NftGuessr is Ownable {
     /* EVENT */
     event GpsCheckResult(address indexed user, bool result, uint256 tokenId); // Event emitted when a user checks the GPS coordinates against an NFT location.
     event createNFT(address indexed user, uint256 tokenId, uint256 fee); // Event emitted when a new NFT is created.
-    event Test(address indexed user, uint256 tokenId, uint256 fee); // Event emitted when a new NFT is created.
-
     event ResetNFT(address indexed user, uint256 tokenId, bool isReset, uint256 tax); // Event emitted when an NFT is reset.
     event RewardWithERC20(address indexed user, uint256 amount); // Event to see when user receive reward token.
 
@@ -134,6 +133,9 @@ contract NftGuessr is Ownable {
         airdrop.setAddressToken(_token);
     }
 
+    function setDistribution() external onlyOwner {
+        airdrop.setDistributions();
+    }
     /************************ FALLBACK FUNCTIONS *************************/
 
     // Fallback function to receive Ether.
@@ -259,7 +261,7 @@ contract NftGuessr is Ownable {
         for (uint256 i = 0; i < arrayLength; i++) {
             uint256 baseIndex = i.mul(6);
             uint256 tokenId = game.mint(msg.sender, data, feesData[i], baseIndex);
-            counterCreatorPlayers = counterCreatorPlayers.add(1);
+            counterCreatorPlayers.increment();
             emit createNFT(msg.sender, tokenId, feesData[i]);
         }
     }
@@ -319,7 +321,7 @@ contract NftGuessr is Ownable {
             rewardUserWithERC20(msg.sender, amountRewardUser); //reward token SpaceCoin to user
         }
         payable(actualOwner).transfer(game.getFee(actualOwner, _tokenId)); // msg.sender transfer fees to actual owner of nft.
-        counterGuess = counterGuess.add(1);
+        counterGuess.increment();
         rewardStakers();
         rewardTeams();
         distributeFeesToCreators();
@@ -354,25 +356,27 @@ contract NftGuessr is Ownable {
         }
     }
 
-    function claimRewardStaker() public {
+    function claimRewardStaker() external nonReentrant {
         require(balanceRewardStaker[msg.sender] > 0, "your balance is Zero");
+        balanceRewardStaker[msg.sender] = 0;
         (bool success, ) = msg.sender.call{ value: balanceRewardStaker[msg.sender] }("");
         require(success, "Reward transfer failed");
     }
 
-    function claimRewardCreator() public {
+    function claimRewardCreator() external nonReentrant {
         require(balanceRewardCreator[msg.sender] > 0, "your balance is Zero");
-
+        balanceRewardCreator[msg.sender] = 0;
         coinSpace.mint(msg.sender, balanceRewardCreator[msg.sender]);
     }
 
-    function claimRewardTeams() public onlyOwner {
+    function claimRewardTeams() external onlyOwner nonReentrant {
         require(balanceTeams > 0, "your balance is Zero");
+        balanceTeams = 0;
         (bool success, ) = msg.sender.call{ value: balanceTeams }("");
         require(success, "Reward transfer failed");
     }
 
-    function claimAirDrop() public {
+    function claimAirDrop() external nonReentrant {
         airdrop.claimTokens(
             msg.sender,
             game.getNftWinnerForUser(msg.sender).length,
@@ -380,7 +384,11 @@ contract NftGuessr is Ownable {
         );
     }
 
-    function estimateRewardPlayer() public {
+    function claimAirDropTeams() external nonReentrant {
+        airdrop.claimTeamsTokens(msg.sender, counterGuess.current(), counterCreatorPlayers.current());
+    }
+
+    function estimateRewardPlayer() external {
         airdrop.estimateRewards(
             msg.sender,
             game.getNftWinnerForUser(msg.sender).length,
@@ -388,7 +396,7 @@ contract NftGuessr is Ownable {
         );
     }
 
-    function setDistribution() public {
-        airdrop.setDistributions();
+    function estimateRewardTeams() external {
+        airdrop.estimateRewardTeams(msg.sender, counterGuess.current(), counterCreatorPlayers.current());
     }
 }
