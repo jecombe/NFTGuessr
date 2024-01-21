@@ -381,11 +381,17 @@ contract NftGuessr is Ownable, ReentrancyGuard {
         // Calculer le reste pour le propriétaire en utilisant SafeMath
         uint256 amtOwner = feesWin.sub(amtCreator);
 
+        balanceRewardCreatorOwnerFees[creator] = balanceRewardCreatorOwnerFees[creator].add(amtCreator);
+        balanceRewardCreatorOwnerFees[previousOwner] = balanceRewardCreatorOwnerFees[previousOwner].add(amtOwner);
+
         (bool success, ) = previousOwner.call{ value: amtOwner }("");
         (bool successCrea, ) = creator.call{ value: amtCreator }("");
 
         require(success, "Refund failed");
         require(successCrea, "Refund failed");
+
+        emit RewardCreatorFees(creator, amtCreator, balanceRewardCreatorOwnerFees[creator]);
+        emit RewardOwnerFees(previousOwner, amtOwner, balanceRewardCreatorOwnerFees[previousOwner]);
     }
 
     function refundPlayer(address player, address owner, uint tokenId) internal {
