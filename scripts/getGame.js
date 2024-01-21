@@ -3,7 +3,7 @@ const path = require("path");
 
 const getTheAbi = (name) => {
   try {
-    const dir = path.resolve(__dirname, `../artifacts/contracts/${name}.sol/${name}.json`);
+    const dir = path.resolve(__dirname, `../artifacts/contracts/erc721/${name}.sol/${name}.json`);
     const file = fs.readFileSync(dir, "utf8");
     const json = JSON.parse(file);
     const abi = json.abi;

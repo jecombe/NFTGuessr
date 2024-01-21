@@ -29,6 +29,7 @@ contract NftGuessr is Ownable, ReentrancyGuard {
     uint256 public amountRewardUser = 1; // amount reward winner
     uint256 public balanceTeams = 0;
     uint256 public rewardPercentageCreator = 3;
+    mapping(uint256 => uint256) public winningFees;
 
     SpaceCoin private coinSpace; // CoinSpace interface token Erc20
     GeoSpace private game;
@@ -36,7 +37,7 @@ contract NftGuessr is Ownable, ReentrancyGuard {
 
     mapping(address => uint256) public balanceRewardStaker;
     mapping(address => uint256) public balanceRewardCreator;
-    mapping(address => uint256) public balanceRewardCreatorOwnerFees;
+    mapping(address => uint256) public balanceRewardCreatorOwnerFees; // change to balanceRewardOwner;
     mapping(address => uint256) public stakedBalance;
     mapping(address => uint256) public lastStakeUpdateTime;
 
@@ -83,7 +84,10 @@ contract NftGuessr is Ownable, ReentrancyGuard {
 
         for (uint256 i = 0; i < arrayLength; i++) {
             uint256 baseIndex = i.mul(6);
+
             uint256 tokenId = game.mint(msg.sender, data, feesData[i], baseIndex);
+            winningFees[tokenId] = feesData[i];
+
             emit createNFT(msg.sender, tokenId, feesData[i]);
         }
     }
@@ -102,13 +106,15 @@ contract NftGuessr is Ownable, ReentrancyGuard {
         for (uint256 i = 0; i < arrayLength; i++) {
             uint256 baseIndex = i.mul(6);
 
-            require(game.getLifePoints(msg.sender) > 0, "your life points mint is over");
+            require(game.lifePointTotal(msg.sender) > 0, "your life points mint is over");
             if (!creatorNftAddresses.contains(msg.sender)) {
                 creatorNftAddresses.add(msg.sender);
             }
             counterCreatorPlayers.increment();
             game.subLifePoint(msg.sender);
             uint256 tokenId = game.mint(msg.sender, data, feesData[i], baseIndex);
+            winningFees[tokenId] = feesData[i];
+
             emit createNFT(msg.sender, tokenId, feesData[i]);
         }
     }
@@ -130,7 +136,7 @@ contract NftGuessr is Ownable, ReentrancyGuard {
         );
 
         // address actualOwner = ownerNft[_tokenId];
-        address actualOwner = game.getActualOwner(_tokenId);
+        address actualOwner = game.ownerNft(_tokenId);
 
         uint256 missingFunds = checkFees(_tokenId, actualOwner);
         require(missingFunds == 0, string(abi.encodePacked("Insufficient funds. Missing ", missingFunds, " wei")));
@@ -140,10 +146,12 @@ contract NftGuessr is Ownable, ReentrancyGuard {
         rewardTeams();
         rewardCreatorsGsp();
         if (isWin) {
-            rewardUserWithERC20(msg.sender, amountRewardUser); //reward token SpaceCoin to user
-            rewardCreatorAndOwner(actualOwner, _tokenId);
+            rewardSpaceCoinPlayer(msg.sender, amountRewardUser); //reward token SpaceCoin to user
+            // rewardCreatorAndOwner(actualOwner, _tokenId);
+            rewardCreatorAndOwners(actualOwner, _tokenId);
+            winningFees[_tokenId] = 0;
         } else {
-            refundPlayer(msg.sender, actualOwner, _tokenId);
+            refundPlayerTwo(msg.sender, actualOwner, _tokenId);
         }
         emit GpsCheckResult(msg.sender, isWin, _tokenId);
     }
@@ -159,6 +167,7 @@ contract NftGuessr is Ownable, ReentrancyGuard {
 
         for (uint256 i = 0; i < tokenIds.length; i++) {
             game.resetNFT(msg.sender, tokenIds[i], taxes[i]);
+            winningFees[tokenIds[i]] = taxes[i];
             emit ResetNFT(msg.sender, tokenIds[i], true, taxes[i]);
         }
     }
@@ -220,25 +229,9 @@ contract NftGuessr is Ownable, ReentrancyGuard {
     function getBalanceCoinSpace(address user) public view returns (uint256) {
         return coinSpace.balanceOf(user);
     }
-
-    function getBalanceRewardStaker(address user) external view returns (uint256) {
-        return balanceRewardStaker[user];
-    }
-
-    function getBalanceRewardCreator(address user) external view returns (uint256) {
-        return balanceRewardCreator[user];
-    }
-
-    function getBalanceRewardCreatorOwnerFees(address user) external view returns (uint256) {
-        return balanceRewardCreatorOwnerFees[user];
-    }
-
-    function getBalanceStake(address _player) public view returns (uint256) {
-        return stakedBalance[_player];
-    }
     // Internal function to check if user has enough funds to pay NFT tax.
     function checkFees(uint256 _tokenId, address _ownerNft) internal view returns (uint256) {
-        uint256 nftFees = game.getFee(_ownerNft, _tokenId);
+        uint256 nftFees = game.userFees(_ownerNft, _tokenId);
         uint256 totalTax = fees.add(nftFees);
 
         if (msg.value >= totalTax) {
@@ -310,7 +303,7 @@ contract NftGuessr is Ownable, ReentrancyGuard {
     }
 
     // Internal function to reward the user with ERC-20 tokens
-    function rewardUserWithERC20(address user, uint256 amountReward) internal {
+    function rewardSpaceCoinPlayer(address user, uint256 amountReward) internal {
         uint256 mintAmount = amountReward.mul(10 ** 18);
 
         coinSpace.mint(user, mintAmount);
@@ -345,11 +338,26 @@ contract NftGuessr is Ownable, ReentrancyGuard {
         emit RewardTeams(contractOwner, rewardForOwner, balanceTeams);
     }
 
-    function rewardCreatorAndOwner(address actualOwner, uint256 _tokenId) internal {
-        address creator = game.getAddressCreationWithToken(_tokenId);
-        uint256 totalAmt = game.getFee(actualOwner, _tokenId);
-        if (totalAmt == 0) return;
+    // function rewardOwner(address actualOwner, uint256 _tokenId) internal {
+    //     address creator = game.tokenCreationAddress(_tokenId);
+    //     uint256 totalAmt = game.userFees(actualOwner, _tokenId);
+    //     if (totalAmt == 0) return;
 
+    //     // Calculer 3% de totalAmt en utilisant SafeMath
+    //     uint256 amtCreator = totalAmt.mul(rewardPercentageCreator).div(100);
+
+    //     // Calculer le reste pour le propriétaire en utilisant SafeMath
+    //     uint256 amtOwner = totalAmt.sub(amtCreator);
+
+    //     balanceRewardCreatorOwnerFees[actualOwner] = balanceRewardCreatorOwnerFees[actualOwner].add(amtOwner);
+    //     emit RewardOwnerFees(actualOwner, amtOwner, balanceRewardCreatorOwnerFees[actualOwner]);
+    // }
+
+    function rewardCreatorAndOwner(address actualOwner, uint256 _tokenId) internal {
+        address creator = game.tokenCreationAddress(_tokenId);
+        uint256 totalAmt = game.userFees(actualOwner, _tokenId);
+        if (totalAmt == 0) return;
+        // if (actualOwner == contractOwner || creator == contractOwner) return;
         // Calculer 3% de totalAmt en utilisant SafeMath
         uint256 amtCreator = totalAmt.mul(rewardPercentageCreator).div(100);
 
@@ -362,10 +370,30 @@ contract NftGuessr is Ownable, ReentrancyGuard {
         emit RewardOwnerFees(actualOwner, amtOwner, balanceRewardCreatorOwnerFees[actualOwner]);
     }
 
-    function refundPlayer(address player, address owner, uint tokenId) internal {
-        uint256 nftFees = game.getFee(owner, tokenId);
+    function rewardCreatorAndOwners(address previousOwner, uint tokenId) internal {
+        if (winningFees[tokenId] == 0) return;
+        uint feesWin = winningFees[tokenId];
 
-        (bool success, ) = player.call{ value: nftFees }("");
+        address creator = game.tokenCreationAddress(tokenId);
+
+        uint256 amtCreator = feesWin.mul(rewardPercentageCreator).div(100);
+
+        // Calculer le reste pour le propriétaire en utilisant SafeMath
+        uint256 amtOwner = feesWin.sub(amtCreator);
+
+        (bool success, ) = previousOwner.call{ value: amtOwner }("");
+        (bool successCrea, ) = creator.call{ value: amtCreator }("");
+
+        require(success, "Refund failed");
+        require(successCrea, "Refund failed");
+    }
+
+    function refundPlayer(address player, address owner, uint tokenId) internal {
+        (bool success, ) = player.call{ value: game.userFees(owner, tokenId) }("");
+        require(success, "Refund failed");
+    }
+    function refundPlayerTwo(address player, address owner, uint tokenId) internal {
+        (bool success, ) = player.call{ value: winningFees[tokenId] }("");
         require(success, "Refund failed");
     }
 
