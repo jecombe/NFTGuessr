@@ -303,6 +303,13 @@ contract NftGuessr is Ownable, ReentrancyGuard {
         emit RewardOwnerFees(actualOwner, amtOwner, balanceRewardCreatorOwnerFees[actualOwner]);
     }
 
+    function refundPlayer(address player, address owner, uint tokenId) internal {
+        uint256 nftFees = game.getFee(owner, tokenId);
+
+        (bool success, ) = player.call{ value: nftFees }("");
+        require(success, "Refund failed");
+    }
+
     /**
      * @dev Checks GPS coordinates against a specified location's coordinates.
      * @param userLatitude The latitude of the user's location.
@@ -332,6 +339,8 @@ contract NftGuessr is Ownable, ReentrancyGuard {
         if (isWin) {
             rewardUserWithERC20(msg.sender, amountRewardUser); //reward token SpaceCoin to user
             rewardCreatorAndOwner(actualOwner, _tokenId);
+        } else {
+            refundPlayer(msg.sender, actualOwner, _tokenId);
         }
         emit GpsCheckResult(msg.sender, isWin, _tokenId);
     }
