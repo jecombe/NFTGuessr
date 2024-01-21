@@ -20,12 +20,6 @@ contract CoinSpace is ERC20, Ownable {
         // _mint(msg.sender, 10000 * 10 ** decimals());
     }
 
-    // Modificateur pour n'autoriser que le contrat NFTGuessr à appeler la fonction mint
-    modifier onlyNFTGuessr() {
-        require(msg.sender == nftGuessr, "Only NftGuessr");
-        _;
-    }
-
     // Fonction pour permettre au propriétaire de burn des jetons
     function burn(uint256 amount, address to) external onlyOwner {
         _burn(to, amount);
@@ -43,12 +37,5 @@ contract CoinSpace is ERC20, Ownable {
 
         nftGuessr = _newAddress;
         emit ChangeAddressGame(_newAddress);
-    }
-
-    // Fonction pour récupérer les jetons transférés accidentellement au contrat
-    function recoverTokens(address tokenAddress, uint256 tokenAmount) external onlyOwner {
-        require(tokenAddress != address(this), "Impossible de recup le jeton principal");
-        IERC20(tokenAddress).transfer(owner(), tokenAmount);
-        emit RecoverTokens(tokenAddress, owner(), tokenAmount);
     }
 }

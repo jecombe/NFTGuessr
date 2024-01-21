@@ -3,28 +3,6 @@
 // @notice This contract extends ERC721Enumerable for NFT functionality.
 // SPDX-License-Identifier: MIT
 
-/* *******************************************************************
-For now, Zama does not handle negative integers.
-So you need to use positive latitude and longitude values.
-Here are the available data:
-
-For West EU :
-Latitude : 0 à 70 degrés (nord)
-Longitude : 0 à 30 degrés (est)
-
-For Noth EU:
-Latitude : 50 à 70 degrés (nord)
-Longitude : 0 à 30 degrés (est)
-
-For North America:
-Latitude : 0 à 70 degrés (nord)
-Longitude : 70 à 170 degrés (ouest)
-
-For East Asia:
-Latitude : 0 à 50 degrés (nord)
-Longitude : 90 à 180 degrés (est)
-******************************************************************* */
-
 pragma solidity ^0.8.19;
 
 import "./libraries/Lib.sol";
@@ -36,12 +14,13 @@ contract NftGuessr is Ownable, ReentrancyGuard {
     using SafeMath for uint256;
     using EnumerableSet for EnumerableSet.AddressSet;
 
-    Counters.Counter private _tokenIdCounter; // tokenCounter id NFT
-    Counters.Counter private counterGuess;
-    Counters.Counter private counterCreatorPlayers;
+    Counters.Counter public counterGuess;
+    Counters.Counter public counterCreatorPlayers;
 
     EnumerableSet.AddressSet private creatorNftAddresses;
+    EnumerableSet.AddressSet private stakersSpcAddresses;
 
+    uint256 public totalStakedAmount;
     string private _baseTokenURI; // Don't use actually
     address public contractOwner;
     uint256 public fees = 2 ether; // Fees (Zama) base
@@ -49,7 +28,7 @@ contract NftGuessr is Ownable, ReentrancyGuard {
     uint256 public feesRewardCreator = 1;
     uint256 public amountRewardUser = 1; // amount reward winner
     uint256 public balanceTeams = 0;
-    address[] stakers;
+    uint256 public rewardPercentageCreator = 3;
 
     CoinSpace private coinSpace; // CoinSpace interface token Erc20
     Game private game;
@@ -57,17 +36,22 @@ contract NftGuessr is Ownable, ReentrancyGuard {
 
     mapping(address => uint256) public balanceRewardStaker;
     mapping(address => uint256) public balanceRewardCreator;
+    mapping(address => uint256) public balanceRewardCreatorOwnerFees;
     mapping(address => uint256) public stakedBalance;
     mapping(address => uint256) public lastStakeUpdateTime;
 
+    /* EVENT */
     event Staked(address indexed user, uint256 amount);
     event Withdrawn(address indexed user, uint256 amount);
-
-    /* EVENT */
     event GpsCheckResult(address indexed user, bool result, uint256 tokenId); // Event emitted when a user checks the GPS coordinates against an NFT location.
     event createNFT(address indexed user, uint256 tokenId, uint256 fee); // Event emitted when a new NFT is created.
     event ResetNFT(address indexed user, uint256 tokenId, bool isReset, uint256 tax); // Event emitted when an NFT is reset.
-    event RewardWithERC20(address indexed user, uint256 amount); // Event to see when user receive reward token.
+    event RewardWinner(address indexed user, uint256 amount); // Event to see when user receive reward token.
+    event RewardCreators(address indexed user, uint256 amountReward, uint256 balance); // Event to see when user receive reward token.
+    event RewardCreatorFees(address indexed user, uint256 amountReward, uint256 balance); // Event to see when user receive reward token.
+    event RewardOwnerFees(address indexed user, uint256 amountReward, uint256 balance);
+    event RewardStakers(address indexed user, uint256 amountReward, uint256 balance); // Event to see when user receive reward token.
+    event RewardTeams(address indexed user, uint256 amountReward, uint256 balance); // Event to see when user receive reward token.
 
     // Contract constructor initializes base token URI and owner.
     constructor() {
@@ -92,15 +76,13 @@ contract NftGuessr is Ownable, ReentrancyGuard {
 
         require(coinSpace.allowance(msg.sender, address(this)) >= amount, "echec allowance");
 
-        if (stakedBalance[msg.sender] == 0) {
-            stakers.push(msg.sender);
+        if (stakedBalance[msg.sender] == 0 && !stakersSpcAddresses.contains(msg.sender)) {
+            stakersSpcAddresses.add(msg.sender);
         }
-
-        // Transférer les jetons du joueur au contrat
-        require(coinSpace.transferFrom(msg.sender, address(this), amount), "echec");
-
-        // Mettre à jour les variables de mise en jeu
         stakedBalance[msg.sender] = stakedBalance[msg.sender].add(amount);
+        totalStakedAmount = totalStakedAmount.add(amount);
+
+        require(coinSpace.transferFrom(msg.sender, address(this), amount), "echec");
 
         emit Staked(msg.sender, amount);
     }
@@ -109,17 +91,17 @@ contract NftGuessr is Ownable, ReentrancyGuard {
         require(amount > 0);
         require(amount <= stakedBalance[msg.sender], "amount > balance stake");
 
-        // Mettre à jour les variables de staking
         stakedBalance[msg.sender] = stakedBalance[msg.sender].sub(amount);
-        // lastStakeTime[msg.sender] = block.timestamp;
-        coinSpace.transfer(msg.sender, amount); // Ajouter rewards si nécessaire
+        if (stakedBalance[msg.sender] == 0) stakersSpcAddresses.remove(msg.sender);
+        totalStakedAmount = totalStakedAmount.sub(amount);
+
+        coinSpace.transfer(msg.sender, amount); //Lib.removeElement(stakers, msg.sender); // Ajouter rewards si nécessaire
 
         emit Withdrawn(msg.sender, amount);
     }
 
     /************************ OWNER FUNCTIONS *************************/
 
-    // Change tokenAddress Erc20
     function setAddressToken(address _tokenErc20) external onlyOwner {
         coinSpace = CoinSpace(_tokenErc20);
     }
@@ -138,12 +120,10 @@ contract NftGuessr is Ownable, ReentrancyGuard {
     }
     /************************ FALLBACK FUNCTIONS *************************/
 
-    // Fallback function to receive Ether.
     receive() external payable {}
 
     /************************ GETTER FUNCTIONS *************************/
 
-    //get balance user SPC
     function getBalanceCoinSpace(address user) public view returns (uint256) {
         return coinSpace.balanceOf(user);
     }
@@ -156,6 +136,10 @@ contract NftGuessr is Ownable, ReentrancyGuard {
         return balanceRewardCreator[user];
     }
 
+    function getBalanceRewardCreatorOwnerFees(address user) external view returns (uint256) {
+        return balanceRewardCreatorOwnerFees[user];
+    }
+
     /************************ CHANGER FUNCTIONS *************************/
 
     // Function to change the fees required for NFT operations.
@@ -163,6 +147,9 @@ contract NftGuessr is Ownable, ReentrancyGuard {
         fees = _fees.mul(1 ether);
     }
 
+    function changeRewardCreators(uint _reward) external onlyOwner {
+        rewardPercentageCreator = _reward;
+    }
     // Function to change the fees required for NFT creation.
     function changeFeesCreation(uint256 _feesCreation) external onlyOwner {
         feesCreation = _feesCreation;
@@ -181,19 +168,18 @@ contract NftGuessr is Ownable, ReentrancyGuard {
 
     /************************ INTERNAL FUNCTIONS *************************/
 
-    function distributeFeesToCreators() internal {
+    function rewardCreatorsGsp() internal {
         uint256 totalCreators = creatorNftAddresses.length();
-        if (totalCreators > 0 && feesRewardCreator > 0) {
-            uint256 totalNft = game.getTotalNft();
+        if (totalCreators == 0) return;
+        uint256 totalNft = game.getTotalNft();
+        for (uint256 i = 0; i < totalCreators; i++) {
+            address creator = creatorNftAddresses.at(i);
 
-            for (uint256 i = 0; i < totalCreators; i++) {
-                address creator = creatorNftAddresses.at(i);
-
-                if (creator != msg.sender && creator != contractOwner) {
-                    uint256 ratio = game.getIdCreator(msg.sender).length.mul(10 ** 18).div(totalNft);
-                    uint256 feeShare = feesRewardCreator.mul(ratio).div(10 ** 18);
-                    balanceRewardCreator[creator] = balanceRewardCreator[creator].add(feeShare);
-                }
+            if (creator != msg.sender && creator != contractOwner) {
+                uint256 ratio = game.getIdsCreator(creator).length.mul(10 ** 18).div(totalNft);
+                uint256 feeShare = feesRewardCreator.mul(ratio).div(10 ** 18);
+                balanceRewardCreator[creator] = balanceRewardCreator[creator].add(feeShare);
+                emit RewardCreators(creator, feeShare, balanceRewardCreator[creator]);
             }
         }
     }
@@ -215,9 +201,8 @@ contract NftGuessr is Ownable, ReentrancyGuard {
         uint256 mintAmount = amountReward.mul(10 ** 18);
 
         coinSpace.mint(user, mintAmount);
-        // balanceRewardCreator[user] += mintAmount;
 
-        emit RewardWithERC20(user, mintAmount);
+        emit RewardWinner(user, mintAmount);
     }
 
     // Internal function to create transaction from msg.sender to smart contract
@@ -260,42 +245,62 @@ contract NftGuessr is Ownable, ReentrancyGuard {
 
         for (uint256 i = 0; i < arrayLength; i++) {
             uint256 baseIndex = i.mul(6);
-            uint256 tokenId = game.mint(msg.sender, data, feesData[i], baseIndex);
+
+            require(game.getLifePoints(msg.sender) > 0, "your life points mint is over");
+            if (!creatorNftAddresses.contains(msg.sender)) {
+                creatorNftAddresses.add(msg.sender);
+            }
             counterCreatorPlayers.increment();
+            game.subLifePoint(msg.sender);
+            uint256 tokenId = game.mint(msg.sender, data, feesData[i], baseIndex);
             emit createNFT(msg.sender, tokenId, feesData[i]);
         }
     }
 
-    function rewardStakers() internal {
-        if (stakers.length <= 0) return;
+    // function getTotalStaker()
+
+    function rewardStakersSpc() internal {
+        if (stakersSpcAddresses.length() <= 0) return;
 
         uint256 rewardForStaker = 1 ether;
 
-        // Calculate total staked amount
-        uint256 totalStakedAmount = 0;
-        for (uint256 i = 0; i < stakers.length; i++) {
-            totalStakedAmount = totalStakedAmount.add(stakedBalance[stakers[i]]);
-        }
-
-        // Distribute rewards based on staking ratio
-        for (uint256 i = 0; i < stakers.length; i++) {
-            address staker = stakers[i];
+        for (uint256 i = 0; i < stakersSpcAddresses.length(); i++) {
+            address staker = stakersSpcAddresses.at(i);
             uint256 stakerBalance = stakedBalance[staker];
 
             if (stakerBalance > 0) {
-                // Calculate staker's ratio
                 uint256 stakerRatio = stakerBalance.mul(10 ** 18).div(totalStakedAmount);
-
-                // Calculate reward for the staker based on their ratio
                 uint256 stakerReward = rewardForStaker.mul(stakerRatio).div(10 ** 18);
                 balanceRewardStaker[staker] = balanceRewardStaker[staker].add(stakerReward);
+                emit RewardStakers(staker, stakerReward, balanceRewardStaker[staker]);
             }
         }
     }
 
     function rewardTeams() internal {
         uint256 rewardForOwner = 1 ether;
+        if (stakersSpcAddresses.length() < 1) {
+            rewardForOwner = rewardForOwner.add(1 ether);
+        }
         balanceTeams = balanceTeams.add(rewardForOwner);
+        emit RewardTeams(contractOwner, rewardForOwner, balanceTeams);
+    }
+
+    function rewardCreatorAndOwner(address actualOwner, uint256 _tokenId) internal {
+        address creator = game.getAddressCreationWithToken(_tokenId);
+        uint256 totalAmt = game.getFee(actualOwner, _tokenId);
+        if (totalAmt == 0) return;
+
+        // Calculer 3% de totalAmt en utilisant SafeMath
+        uint256 amtCreator = totalAmt.mul(rewardPercentageCreator).div(100);
+
+        // Calculer le reste pour le propriétaire en utilisant SafeMath
+        uint256 amtOwner = totalAmt.sub(amtCreator);
+
+        balanceRewardCreatorOwnerFees[creator] = balanceRewardCreatorOwnerFees[creator].add(amtCreator);
+        balanceRewardCreatorOwnerFees[actualOwner] = balanceRewardCreatorOwnerFees[actualOwner].add(amtOwner);
+        emit RewardCreatorFees(creator, amtCreator, balanceRewardCreatorOwnerFees[creator]);
+        emit RewardOwnerFees(actualOwner, amtOwner, balanceRewardCreatorOwnerFees[actualOwner]);
     }
 
     /**
@@ -304,7 +309,11 @@ contract NftGuessr is Ownable, ReentrancyGuard {
      * @param userLongitude The longitude of the user's location.
      * @param _tokenId The ID of the NFT being checked.
      */
-    function checkGps(bytes calldata userLatitude, bytes calldata userLongitude, uint256 _tokenId) external payable {
+    function checkGps(
+        bytes calldata userLatitude,
+        bytes calldata userLongitude,
+        uint256 _tokenId
+    ) external payable nonReentrant {
         require(
             msg.value >= fees,
             string(abi.encodePacked("Insufficient fees. A minimum of ", fees, " ZAMA is required."))
@@ -316,15 +325,14 @@ contract NftGuessr is Ownable, ReentrancyGuard {
         uint256 missingFunds = checkFees(_tokenId, actualOwner);
         require(missingFunds == 0, string(abi.encodePacked("Insufficient funds. Missing ", missingFunds, " wei")));
         bool isWin = game.checkGps(msg.sender, userLatitude, userLongitude, _tokenId);
-
+        counterGuess.increment();
+        rewardStakersSpc();
+        rewardTeams();
+        rewardCreatorsGsp();
         if (isWin) {
             rewardUserWithERC20(msg.sender, amountRewardUser); //reward token SpaceCoin to user
+            rewardCreatorAndOwner(actualOwner, _tokenId);
         }
-        payable(actualOwner).transfer(game.getFee(actualOwner, _tokenId)); // msg.sender transfer fees to actual owner of nft.
-        counterGuess.increment();
-        rewardStakers();
-        rewardTeams();
-        distributeFeesToCreators();
         emit GpsCheckResult(msg.sender, isWin, _tokenId);
     }
 
@@ -356,23 +364,43 @@ contract NftGuessr is Ownable, ReentrancyGuard {
         }
     }
 
+    function callAirDropStakers(uint amtMinimumStake) external onlyOwner {
+        for (uint i = 0; i < stakersSpcAddresses.length(); i++) {
+            uint amt = stakedBalance[stakersSpcAddresses.at(i)];
+            if (amt > amtMinimumStake) {
+                airdrop.airdropStaker(stakersSpcAddresses.at(i));
+            }
+        }
+    }
+
     function claimRewardStaker() external nonReentrant {
         require(balanceRewardStaker[msg.sender] > 0, "your balance is Zero");
+        uint cpyAmt = balanceRewardStaker[msg.sender];
         balanceRewardStaker[msg.sender] = 0;
-        (bool success, ) = msg.sender.call{ value: balanceRewardStaker[msg.sender] }("");
+        (bool success, ) = msg.sender.call{ value: cpyAmt }("");
         require(success, "Reward transfer failed");
     }
 
     function claimRewardCreator() external nonReentrant {
         require(balanceRewardCreator[msg.sender] > 0, "your balance is Zero");
+        uint cpyAmt = balanceRewardCreator[msg.sender];
         balanceRewardCreator[msg.sender] = 0;
-        coinSpace.mint(msg.sender, balanceRewardCreator[msg.sender]);
+        coinSpace.mint(msg.sender, cpyAmt);
+    }
+
+    function claimRewardCreatorOwnerFees() external nonReentrant {
+        require(balanceRewardCreatorOwnerFees[msg.sender] > 0, "your balance is Zero");
+        uint cpyAmt = balanceRewardCreatorOwnerFees[msg.sender];
+        balanceRewardCreatorOwnerFees[msg.sender] = 0;
+        (bool success, ) = msg.sender.call{ value: cpyAmt }("");
+        require(success, "Reward transfer failed");
     }
 
     function claimRewardTeams() external onlyOwner nonReentrant {
         require(balanceTeams > 0, "your balance is Zero");
+        uint cpyAmt = balanceTeams;
         balanceTeams = 0;
-        (bool success, ) = msg.sender.call{ value: balanceTeams }("");
+        (bool success, ) = msg.sender.call{ value: cpyAmt }("");
         require(success, "Reward transfer failed");
     }
 
@@ -380,11 +408,11 @@ contract NftGuessr is Ownable, ReentrancyGuard {
         airdrop.claimTokens(
             msg.sender,
             game.getNftWinnerForUser(msg.sender).length,
-            game.getIdCreator(msg.sender).length
+            game.getIdsCreator(msg.sender).length
         );
     }
 
-    function claimAirDropTeams() external nonReentrant {
+    function claimAirDropTeams() external onlyOwner nonReentrant {
         airdrop.claimTeamsTokens(msg.sender, counterGuess.current(), counterCreatorPlayers.current());
     }
 
@@ -392,11 +420,11 @@ contract NftGuessr is Ownable, ReentrancyGuard {
         airdrop.estimateRewards(
             msg.sender,
             game.getNftWinnerForUser(msg.sender).length,
-            game.getIdCreator(msg.sender).length
+            game.getIdsCreator(msg.sender).length
         );
     }
 
-    function estimateRewardTeams() external {
+    function estimateRewardTeams() external onlyOwner {
         airdrop.estimateRewardTeams(msg.sender, counterGuess.current(), counterCreatorPlayers.current());
     }
 }

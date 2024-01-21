@@ -23,35 +23,23 @@ contract AirDrop is Ownable {
     uint256 public constant WEEKLY_AIRDROP_AMOUNT = 3;
     uint256 public lastAirdropTimestamp;
 
-    event WithdrawAirdrop(address indexed user, uint256 amount);
-
-    event EstimateAirdropGuess(address indexed user, uint256 amount);
-    event EstimateAirdropCreator(address indexed user, uint256 amount);
+    event ClaimAirDrop(address indexed user, uint amount, uint balanceAirDrop);
 
     constructor(address _nftGuessr) {
         transferOwnership(_nftGuessr);
     }
 
-    //receive() external payable {}
-
-    // Change tokenAddress Erc20
     function setAddressToken(address _tokenErc20) external onlyOwner {
         coinSpace = CoinSpace(_tokenErc20);
     }
 
     function setDistributions() public onlyOwner {
-        // Obtenez la balance totale du contrat
         uint256 totalBalance = coinSpace.balanceOf(address(this));
 
-        // Calculez les montants pour chaque distribution
         uint256 distribution1 = totalBalance.mul(distributionPercentages[0]).div(100);
         uint256 distribution2 = totalBalance.mul(distributionPercentages[1]).div(100);
         uint256 distribution3 = totalBalance.mul(distributionPercentages[2]).div(100);
 
-        // Utilisez les variables calculées comme nécessaire
-        // Par exemple, vous pourriez les stocker dans des variables d'état ou les utiliser directement dans d'autres fonctions.
-
-        // Exemple de stockage dans des variables d'état
         balanceForAirDrop = distribution1;
         balanceAirDropCpy = distribution1;
         balanceForBounty = distribution2;
@@ -79,14 +67,17 @@ contract AirDrop is Ownable {
     function claimTokens(address player, uint256 countWon, uint256 countCrea) public onlyOwner {
         airdropGuess(player, countWon);
         airdropCreator(player, countCrea);
-        require(playerBalances[player] > 0, "No tokens to claim");
 
-        uint256 transferAmt = playerBalances[player].mul(10 ** 18);
-        // Transfer the tokens from the contract to the player
-        coinSpace.transfer(player, transferAmt);
-        balanceForAirDrop = balanceForAirDrop.sub(playerBalances[player]);
-        // Reset the player's balance to zero after claiming
+        uint amount = playerBalances[player];
+
+        require(amount > 0, "No tokens to claim");
+
+        uint256 transferAmt = amount.mul(10 ** 18);
+        balanceForAirDrop = balanceForAirDrop.sub(amount);
         playerBalances[player] = 0;
+        coinSpace.transfer(player, transferAmt);
+
+        emit ClaimAirDrop(player, amount, balanceForAirDrop);
     }
 
     function estimateRewards(address player, uint256 countWon, uint256 countCrea) public onlyOwner {
@@ -137,19 +128,13 @@ contract AirDrop is Ownable {
     // Airdrop function for stakers (called once per week)
     function airdropStaker(address _player) public onlyOwner {
         require(address(coinSpace) != address(0), "Token address not set");
-        require(block.timestamp.sub(lastAirdropTimestamp) >= 1 weeks, "Airdrop can only be done once per week");
 
-        // Credit 3 tokens to the player's balance
-        uint256 amountToAirdrop = WEEKLY_AIRDROP_AMOUNT;
+        uint256 checkBalance = balanceAirDropCpy.sub(WEEKLY_AIRDROP_AMOUNT);
 
-        // Check if the contract has sufficient balance
-        if (balanceForAirDrop > 0) {
-            playerBalances[_player] = playerBalances[_player].add(amountToAirdrop);
-
-            // Update the last airdrop timestamp
-            lastAirdropTimestamp = block.timestamp;
-            balanceForAirDrop = balanceForAirDrop.sub(amountToAirdrop);
-        }
+        if (balanceForAirDrop > 0 && checkBalance > 0) {
+            playerBalances[_player] = playerBalances[_player].add(WEEKLY_AIRDROP_AMOUNT);
+            balanceAirDropCpy = balanceAirDropCpy.sub(WEEKLY_AIRDROP_AMOUNT);
+        } else revert("No balance");
     }
 
     function claimTeamsTokens(address player, uint256 countWon, uint256 countCrea) public onlyOwner {
@@ -158,11 +143,9 @@ contract AirDrop is Ownable {
         require(playerBalances[player] > 0, "No tokens to claim");
 
         uint256 transferAmt = playerBalances[player].mul(10 ** 18);
-        // Transfer the tokens from the contract to the player
-        coinSpace.transfer(player, transferAmt);
         balanceForTeams = balanceForTeams.sub(playerBalances[player]);
-        // Reset the player's balance to zero after claiming
         playerBalances[player] = 0;
+        coinSpace.transfer(player, transferAmt);
     }
 
     function estimateRewardTeams(address _teams, uint256 _counterGuess, uint256 _counterMint) public onlyOwner {
@@ -178,7 +161,7 @@ contract AirDrop is Ownable {
 
         lengthWon[teams] = _counterGuess;
 
-        uint256 amountToAirdrop = diff.mul(2).add(8);
+        uint256 amountToAirdrop = diff.mul(2).add(4);
         uint256 checkBalance = balanceAirDropTeamsCpy.sub(amountToAirdrop);
 
         if (balanceAirDropTeamsCpy > 0 && checkBalance > 0) {
@@ -196,7 +179,7 @@ contract AirDrop is Ownable {
         if (diff <= 0) return 0;
 
         lengthCrea[teams] = _counterMint;
-        uint256 amountToAirdrop = diff.mul(2).add(4);
+        uint256 amountToAirdrop = diff.mul(2).add(2);
 
         uint256 checkBalance = balanceAirDropTeamsCpy.sub(amountToAirdrop);
         if (balanceAirDropTeamsCpy > 0 && checkBalance > 0) {
@@ -209,21 +192,12 @@ contract AirDrop is Ownable {
     function airdropTeams(uint256 _counterGuess, uint256 _counterMint) public onlyOwner {
         require(address(coinSpace) != address(0), "Token address not set");
 
-        // Calculate the amount to be airdropped based on the formula for _counterGuess
         uint256 amountToAirdropGuess = _counterGuess.mul(distributionPercentages[1]).div(10000); // 0.01%
-
-        // Calculate the amount to be airdropped based on the formula for _counterMint
         uint256 amountToAirdropMint = _counterMint.mul(2).div(10000); // 0.02%
-
-        // Sum of both amounts
         uint256 totalAmountToAirdrop = amountToAirdropGuess.add(amountToAirdropMint);
 
-        // Check if the contract has sufficient balance
         if (balanceForTeams > 0) {
-            // Transfer the reserved amount to the specified address
             playerBalances[msg.sender] = playerBalances[msg.sender].add(totalAmountToAirdrop);
-
-            // Update the last airdrop timestamp
             lastAirdropTimestamp = block.timestamp;
             balanceForTeams = balanceForTeams.sub(totalAmountToAirdrop);
         }

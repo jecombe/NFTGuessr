@@ -3,22 +3,31 @@ pragma solidity ^0.8.19;
 import "./libraries/Lib.sol";
 
 contract Game is ERC721Enumerable, Ownable, EIP712WithModifier {
-    using EnumerableSet for EnumerableSet.AddressSet;
     using SafeMath for uint256;
     using Counters for Counters.Counter;
 
     Counters.Counter public _tokenIdCounter; // tokenCounter id NFT
     string private _baseTokenURI; // Don't use actually
     address public contractOwner;
-    EnumerableSet.AddressSet private creatorNftAddresses;
-    mapping(uint256 => Location) internal locations; // Mapping to store NFT locations and non-accessible locations.
+
+    uint public lifeMint = 50;
+    uint public subLife = 1;
+    uint public addLife = 1;
+    mapping(address => uint256[]) public tokenIdsReset;
+    mapping(address => mapping(uint256 => uint256)) public tokenIdPoints;
+    mapping(address => uint256) public lifePointTotal;
+    mapping(address => uint256) public saveLifePointTotal;
+
+    //mapping(address => uint256)
+
+    mapping(uint256 => Location) private locations; // Mapping to store NFT locations and non-accessible locations.
     mapping(address => uint256[]) public creatorNft; // To see all NFTsIDs back in game
     mapping(address => mapping(uint256 => uint256)) public userFees; // To see all fees for nfts address user
-    mapping(uint256 => address) ownerNft; // This variable is used to indirectly determine if a user is the owner of the NFT.
+    mapping(uint256 => address) public ownerNft; // This variable is used to indirectly determine if a user is the owner of the NFT.
     mapping(uint256 => address) public tokenResetAddress; //  See address user NFT back in game with ID
     mapping(uint256 => address) public tokenCreationAddress; // See address user NFT creation with ID
     mapping(address => uint256[]) public resetNft; // To see all NFTsIDs back in game
-    mapping(address => uint[]) winners;
+    mapping(address => uint[]) public winners;
     mapping(address => uint256) public balanceRewardStaker;
     mapping(address => uint256) public balanceRewardCreator;
 
@@ -32,12 +41,22 @@ contract Game is ERC721Enumerable, Ownable, EIP712WithModifier {
         _;
     }
 
+    function changeLifeMint(uint _lifeMint) external isOwner {
+        lifeMint = _lifeMint;
+    }
+    function changeSubLife(uint _subLife) external isOwner {
+        subLife = _subLife;
+    }
+    function changeAddLife(uint _addLife) external isOwner {
+        addLife = _addLife;
+    }
+
     // Function to get the total number of NFTs in existence.
     function getTotalNft() public view returns (uint256) {
         return totalSupply();
     }
 
-    function getIdCreator(address player) external view returns (uint256[] memory) {
+    function getIdsCreator(address player) external view returns (uint256[] memory) {
         return creatorNft[player];
     }
 
@@ -61,7 +80,7 @@ contract Game is ERC721Enumerable, Ownable, EIP712WithModifier {
     }
 
     // Function to get the IDs and fees of NFTs reset by a user.
-    function getResetNFTsAndFeesByOwner(address user) public view returns (uint256[] memory, uint256[] memory) {
+    function getResetNFTsAndFeesByOwner(address user) external view returns (uint256[] memory, uint256[] memory) {
         uint256[] memory resetNFTs = resetNft[user];
         uint256[] memory nftFees = new uint256[](resetNFTs.length);
 
@@ -74,12 +93,12 @@ contract Game is ERC721Enumerable, Ownable, EIP712WithModifier {
     }
 
     // Function to get the IDs of NFTs reset by a user.
-    function getNFTsResetByOwner(address _owner) public view returns (uint256[] memory) {
+    function getNFTsResetByOwner(address _owner) external view returns (uint256[] memory) {
         return resetNft[_owner];
     }
 
     // Function to get the creation IDs and fees of NFTs created by a user. (fees creator is for one round)
-    function getNftCreationAndFeesByUser(address user) public view returns (uint256[] memory, uint256[] memory) {
+    function getNftCreationAndFeesByUser(address user) external view returns (uint256[] memory, uint256[] memory) {
         uint256[] memory ids = new uint256[](creatorNft[user].length);
         uint256[] memory feesNft = new uint256[](creatorNft[user].length);
 
@@ -92,7 +111,7 @@ contract Game is ERC721Enumerable, Ownable, EIP712WithModifier {
         return (ids, feesNft);
     }
 
-    function getNftWinnerForUser(address user) public view returns (uint256[] memory) {
+    function getNftWinnerForUser(address user) external view returns (uint256[] memory) {
         return winners[user];
     }
 
@@ -108,10 +127,14 @@ contract Game is ERC721Enumerable, Ownable, EIP712WithModifier {
         creatorNft[player].push(tokenId);
         tokenCreationAddress[tokenId] = player;
         ownerNft[tokenId] = player;
+    }
 
-        if (!creatorNftAddresses.contains(player)) {
-            creatorNftAddresses.add(player);
-        }
+    // mapping(address => uint256[]) public tokenIdsReset;
+    // mapping(address => mapping(uint256 => uint256)) public tokenIdPoints;
+    // mapping(address => uint256) public lifePointTotal;
+
+    function getLifePoints(address player) external view returns (uint) {
+        return lifePointTotal[player];
     }
 
     function mint(
@@ -143,7 +166,7 @@ contract Game is ERC721Enumerable, Ownable, EIP712WithModifier {
         uint256 tokenId,
         bytes32 publicKey,
         bytes calldata signature
-    ) external view onlySignedPublicKey(publicKey, signature) returns (NFTLocation memory) {
+    ) external view onlySignedPublicKey(publicKey, signature) isOwner returns (NFTLocation memory) {
         return getLocation(locations[tokenId], publicKey);
     }
     // Function to get the address associated with the reset of an NFT.
@@ -173,7 +196,7 @@ contract Game is ERC721Enumerable, Ownable, EIP712WithModifier {
     }
 
     //Function to see if location is valid
-    function isLocationValid(uint256 locationId) public view returns (bool) {
+    function isLocationValid(uint256 locationId) internal view returns (bool) {
         return locations[locationId].isValid;
     }
 
@@ -187,8 +210,43 @@ contract Game is ERC721Enumerable, Ownable, EIP712WithModifier {
         }
         return false;
     }
+
+    function subLifePoint(address _ownerNft) external onlyOwner {
+        lifePointTotal[_ownerNft] = lifePointTotal[_ownerNft].sub(subLife);
+    }
+
+    function subLifePointTotal(address _ownerNft) internal view returns (uint) {
+        // Calculer combien de points vous devez enlever
+        uint256 expectedTotalPointsLength = tokenIdsReset[_ownerNft].length;
+        uint256 expectedTotalPoints = expectedTotalPointsLength.mul(lifeMint);
+        uint256 pointsToRemove = expectedTotalPoints > lifePointTotal[_ownerNft]
+            ? expectedTotalPoints.sub(lifePointTotal[_ownerNft])
+            : 0;
+        return pointsToRemove;
+    }
+
+    function saveLifePoints(address _ownerNft) internal {
+        // Calculer combien de points vous devez enlever
+        uint amtToRemove = subLifePointTotal(_ownerNft);
+        if (amtToRemove < 1) return;
+        saveLifePointTotal[_ownerNft] = saveLifePointTotal[_ownerNft].add(amtToRemove);
+        lifePointTotal[_ownerNft] = lifePointTotal[_ownerNft].sub(amtToRemove);
+    }
+
+    function addSaveLifePointsToTotal(address _ownerNft) internal {
+        // Calculer combien de points vous devez enlever
+        uint amtToAdd = saveLifePointTotal[_ownerNft];
+        if (amtToAdd < 1) return;
+        saveLifePointTotal[_ownerNft] = saveLifePointTotal[_ownerNft].sub(amtToAdd);
+        lifePointTotal[_ownerNft] = lifePointTotal[_ownerNft].add(amtToAdd);
+    }
+
     // Internal function to reset mapping
     function resetMapping(uint256 tokenId, address _ownerNft) internal {
+        if (Lib.contains(tokenIdsReset[_ownerNft], tokenId)) {
+            uint256 amtLifeSub = subLifePointTotal(_ownerNft);
+            lifePointTotal[_ownerNft] = lifePointTotal[_ownerNft].sub(amtLifeSub);
+        }
         delete userFees[_ownerNft][tokenId];
         locations[tokenId].isValid = false;
         delete ownerNft[tokenId];
@@ -205,7 +263,6 @@ contract Game is ERC721Enumerable, Ownable, EIP712WithModifier {
         euint32 lat = TFHE.asEuint32(userLatitude);
         euint32 lng = TFHE.asEuint32(userLongitude);
 
-        bool isWin = false;
         uint256 totalSupply = totalSupply();
 
         require(_tokenId <= totalSupply, "Your token id is invalid");
@@ -221,15 +278,24 @@ contract Game is ERC721Enumerable, Ownable, EIP712WithModifier {
             resetMapping(_tokenId, actualOwner); // Reset data with delete
             Lib.removeElement(resetNft[actualOwner], _tokenId); // delete resetOwner from array mapping
             ownerNft[_tokenId] = player; // Allows recording the new owner for the reset (NFTs back in game).
-            isWin = true;
             winners[player].push(_tokenId);
             _transfer(ownerOf(_tokenId), player, _tokenId); //Transfer nft to winner
+            return true;
         }
-        return isWin;
+        return false;
     }
 
     function getActualOwner(uint256 _tokenId) external view returns (address) {
         return ownerNft[_tokenId];
+    }
+
+    function manageResetLifeMint(address player, uint tokenId) internal {
+        if (!Lib.contains(tokenIdsReset[player], tokenId)) {
+            tokenIdsReset[player].push(tokenId);
+            lifePointTotal[player] = lifePointTotal[player].add(lifeMint);
+        } else {
+            addSaveLifePointsToTotal(player);
+        }
     }
 
     function resetNFT(address player, uint256 tokenId, uint256 tax) external onlyOwner {
@@ -237,12 +303,13 @@ contract Game is ERC721Enumerable, Ownable, EIP712WithModifier {
         require(!Lib.contains(resetNft[player], tokenId), "NFT is already back in game");
         require(!Lib.contains(creatorNft[player], tokenId), "the creator cannot reset nft");
 
+        manageResetLifeMint(player, tokenId);
+
         userFees[player][tokenId] = tax;
         resetNft[player].push(tokenId);
         ownerNft[tokenId] = ownerOf(tokenId);
         locations[tokenId].isValid = true;
         tokenResetAddress[tokenId] = player;
-
         _transfer(player, address(this), tokenId);
     }
 
@@ -250,10 +317,11 @@ contract Game is ERC721Enumerable, Ownable, EIP712WithModifier {
         require(Lib.contains(resetNft[player], tokenId), "NFT is not back in game");
         require(!Lib.contains(creatorNft[player], tokenId), "the creator cannot cancel reset nft");
 
+        saveLifePoints(player);
+
         locations[tokenId].isValid = false;
         delete tokenResetAddress[tokenId];
         userFees[player][tokenId] = 0;
-
         Lib.removeElement(resetNft[player], tokenId);
         _transfer(address(this), player, tokenId);
     }
