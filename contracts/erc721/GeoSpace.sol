@@ -1,8 +1,14 @@
 pragma solidity ^0.8.19;
 
-import "./libraries/Lib.sol";
+import "../libraries/Lib.sol";
+import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
+import "fhevm/abstracts/EIP712WithModifier.sol";
+import "@openzeppelin/contracts/utils/Counters.sol";
+import "@openzeppelin/contracts/utils/math/SafeMath.sol";
+import "../structs/StructsNftGuessr.sol";
 
-contract Game is ERC721Enumerable, Ownable, EIP712WithModifier {
+contract GeoSpace is ERC721Enumerable, Ownable, EIP712WithModifier {
     using SafeMath for uint256;
     using Counters for Counters.Counter;
 
@@ -13,7 +19,7 @@ contract Game is ERC721Enumerable, Ownable, EIP712WithModifier {
     uint public lifeMint = 50;
     uint public subLife = 1;
     uint public addLife = 1;
-    mapping(address => uint256[]) public tokenIdsReset;
+    mapping(address => uint256[]) public tokenIdResetLife;
     mapping(address => mapping(uint256 => uint256)) public tokenIdPoints;
     mapping(address => uint256) public lifePointTotal;
     mapping(address => uint256) public saveLifePointTotal;
@@ -40,17 +46,7 @@ contract Game is ERC721Enumerable, Ownable, EIP712WithModifier {
         require(msg.sender == contractOwner, "you are not the owner");
         _;
     }
-
-    function changeLifeMint(uint _lifeMint) external isOwner {
-        lifeMint = _lifeMint;
-    }
-    function changeSubLife(uint _subLife) external isOwner {
-        subLife = _subLife;
-    }
-    function changeAddLife(uint _addLife) external isOwner {
-        addLife = _addLife;
-    }
-
+    /************************ GETTER FUNCTIONS *************************/
     // Function to get the total number of NFTs in existence.
     function getTotalNft() public view returns (uint256) {
         return totalSupply();
@@ -119,39 +115,8 @@ contract Game is ERC721Enumerable, Ownable, EIP712WithModifier {
     function getFee(address user, uint256 id) external view returns (uint256) {
         return userFees[user][id];
     }
-
-    // Internal function to set data mapping and array for minting NFT GeoSpace function
-    function setDataForMinting(address player, uint256 tokenId, uint256 feesToSet, Location memory locate) internal {
-        locations[tokenId] = locate;
-        userFees[player][tokenId] = feesToSet;
-        creatorNft[player].push(tokenId);
-        tokenCreationAddress[tokenId] = player;
-        ownerNft[tokenId] = player;
-    }
-
-    // mapping(address => uint256[]) public tokenIdsReset;
-    // mapping(address => mapping(uint256 => uint256)) public tokenIdPoints;
-    // mapping(address => uint256) public lifePointTotal;
-
     function getLifePoints(address player) external view returns (uint) {
         return lifePointTotal[player];
-    }
-
-    function mint(
-        address player,
-        bytes[] calldata data,
-        uint256 feesData,
-        uint256 baseIndex
-    ) external onlyOwner returns (uint256) {
-        _tokenIdCounter.increment();
-        uint256 tokenId = _tokenIdCounter.current();
-
-        Location memory locate = Lib.createObjectLocation(data, baseIndex);
-
-        isLocationAlreadyUsed(locate);
-        setDataForMinting(player, tokenId, feesData, locate);
-        _mint(address(this), tokenId);
-        return tokenId;
     }
 
     // Internal function to get strcture result get Location decrypt
@@ -211,14 +176,34 @@ contract Game is ERC721Enumerable, Ownable, EIP712WithModifier {
         return false;
     }
 
+    function getActualOwner(uint256 _tokenId) external view returns (address) {
+        return ownerNft[_tokenId];
+    }
+    /************************ CHANGER FUNCTIONS *************************/
+
+    function changeLifeMint(uint _lifeMint) external isOwner {
+        lifeMint = _lifeMint;
+    }
+    function changeSubLife(uint _subLife) external isOwner {
+        subLife = _subLife;
+    }
+    function changeAddLife(uint _addLife) external isOwner {
+        addLife = _addLife;
+    }
+
+    function changeUserFees(uint tokenId, uint newFee) external {
+        require(msg.sender == ownerNft[tokenId], "you are not the owner of GSP");
+        userFees[msg.sender][tokenId] = newFee;
+    }
+    /************************ LIFE POINTS MINT FUNCTIONS *************************/
     function subLifePoint(address _ownerNft) external onlyOwner {
         lifePointTotal[_ownerNft] = lifePointTotal[_ownerNft].sub(subLife);
     }
 
     function subLifePointTotal(address _ownerNft) internal view returns (uint) {
         // Calculer combien de points vous devez enlever
-        uint256 expectedTotalPointsLength = tokenIdsReset[_ownerNft].length;
-        uint256 expectedTotalPoints = expectedTotalPointsLength.mul(lifeMint);
+        uint256 expectedTotalPointsLength = tokenIdResetLife[_ownerNft].length; // 2
+        uint256 expectedTotalPoints = expectedTotalPointsLength.mul(lifeMint); // 100
         uint256 pointsToRemove = expectedTotalPoints > lifePointTotal[_ownerNft]
             ? expectedTotalPoints.sub(lifePointTotal[_ownerNft])
             : 0;
@@ -241,18 +226,44 @@ contract Game is ERC721Enumerable, Ownable, EIP712WithModifier {
         lifePointTotal[_ownerNft] = lifePointTotal[_ownerNft].add(amtToAdd);
     }
 
-    // Internal function to reset mapping
-    function resetMapping(uint256 tokenId, address _ownerNft) internal {
-        if (Lib.contains(tokenIdsReset[_ownerNft], tokenId)) {
-            uint256 amtLifeSub = subLifePointTotal(_ownerNft);
-            lifePointTotal[_ownerNft] = lifePointTotal[_ownerNft].sub(amtLifeSub);
+    function manageResetLifeMint(address player, uint tokenId) internal {
+        if (!Lib.contains(tokenIdResetLife[player], tokenId)) {
+            tokenIdResetLife[player].push(tokenId);
+            lifePointTotal[player] = lifePointTotal[player].add(lifeMint);
+        } else {
+            addSaveLifePointsToTotal(player);
         }
-        delete userFees[_ownerNft][tokenId];
-        locations[tokenId].isValid = false;
-        delete ownerNft[tokenId];
-        delete tokenResetAddress[tokenId];
     }
 
+    /************************ MINTING FUNCTIONS *************************/
+
+    // Internal function to set data mapping and array for minting NFT GeoSpace function
+    function setDataForMinting(address player, uint256 tokenId, uint256 feesToSet, Location memory locate) internal {
+        locations[tokenId] = locate;
+        userFees[player][tokenId] = feesToSet;
+        creatorNft[player].push(tokenId);
+        tokenCreationAddress[tokenId] = player;
+        ownerNft[tokenId] = player;
+    }
+
+    function mint(
+        address player,
+        bytes[] calldata data,
+        uint256 feesData,
+        uint256 baseIndex
+    ) external onlyOwner returns (uint256) {
+        _tokenIdCounter.increment();
+        uint256 tokenId = _tokenIdCounter.current();
+
+        Location memory locate = Lib.createObjectLocation(data, baseIndex);
+
+        isLocationAlreadyUsed(locate);
+        setDataForMinting(player, tokenId, feesData, locate);
+        _mint(address(this), tokenId);
+        return tokenId;
+    }
+
+    /************************ GAME FUNCTIONS *************************/
     function checkGps(
         address player,
         bytes calldata userLatitude,
@@ -284,18 +295,16 @@ contract Game is ERC721Enumerable, Ownable, EIP712WithModifier {
         }
         return false;
     }
-
-    function getActualOwner(uint256 _tokenId) external view returns (address) {
-        return ownerNft[_tokenId];
-    }
-
-    function manageResetLifeMint(address player, uint tokenId) internal {
-        if (!Lib.contains(tokenIdsReset[player], tokenId)) {
-            tokenIdsReset[player].push(tokenId);
-            lifePointTotal[player] = lifePointTotal[player].add(lifeMint);
-        } else {
-            addSaveLifePointsToTotal(player);
+    // Internal function to reset mapping
+    function resetMapping(uint256 tokenId, address _ownerNft) internal {
+        if (Lib.contains(tokenIdResetLife[_ownerNft], tokenId)) {
+            uint256 amtLifeSub = subLifePointTotal(_ownerNft);
+            lifePointTotal[_ownerNft] = lifePointTotal[_ownerNft].sub(amtLifeSub);
         }
+        delete userFees[_ownerNft][tokenId];
+        locations[tokenId].isValid = false;
+        delete ownerNft[tokenId];
+        delete tokenResetAddress[tokenId];
     }
 
     function resetNFT(address player, uint256 tokenId, uint256 tax) external onlyOwner {

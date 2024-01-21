@@ -2,9 +2,9 @@
 
 pragma solidity ^0.8.19;
 import "../structs/StructsNftGuessr.sol";
-import "../erc20/Erc20.sol";
+import "../erc20/SpaceCoin.sol";
 import "../airdrop/AirDrop.sol";
-import "../Game.sol";
+import "../erc721/GeoSpace.sol";
 import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import "fhevm/lib/TFHE.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";

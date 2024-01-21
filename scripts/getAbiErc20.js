@@ -20,4 +20,4 @@ const getTheAbi = (name) => {
   }
 };
 
-getTheAbi("CoinSpace");
+getTheAbi("SpaceCoin");

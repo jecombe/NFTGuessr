@@ -20,4 +20,4 @@ const getTheAbi = (name) => {
   }
 };
 
-getTheAbi("Game");
+getTheAbi("GeoSpace");

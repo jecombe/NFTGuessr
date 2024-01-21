@@ -3,12 +3,12 @@ pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import "../structs/StructsNftGuessr.sol";
-import "../erc20/Erc20.sol";
+import "../erc20/SpaceCoin.sol";
 
 contract AirDrop is Ownable {
     using SafeMath for uint256;
 
-    CoinSpace private coinSpace; // CoinSpace interface token Erc20
+    SpaceCoin private coinSpace; // CoinSpace interface token Erc20
     uint256[3] private distributionPercentages = [80, 10, 10]; // 80% for one purpose, 20% for another
     mapping(address => uint256) public playerBalances;
     mapping(address => uint256) private lengthWon;
@@ -16,6 +16,7 @@ contract AirDrop is Ownable {
     uint256 balanceForAirDrop;
     uint256 balanceForTeams;
     uint256 balanceForBounty;
+    bool public isOver;
 
     uint256 balanceAirDropCpy;
     uint256 balanceAirDropTeamsCpy;
@@ -30,7 +31,7 @@ contract AirDrop is Ownable {
     }
 
     function setAddressToken(address _tokenErc20) external onlyOwner {
-        coinSpace = CoinSpace(_tokenErc20);
+        coinSpace = SpaceCoin(_tokenErc20);
     }
 
     function setDistributions() public onlyOwner {
@@ -65,6 +66,7 @@ contract AirDrop is Ownable {
 
     // Function for players to claim their tokens
     function claimTokens(address player, uint256 countWon, uint256 countCrea) public onlyOwner {
+        require(!isOver, "the airdrop players is finish");
         airdropGuess(player, countWon);
         airdropCreator(player, countCrea);
 
@@ -82,18 +84,17 @@ contract AirDrop is Ownable {
 
     function estimateRewards(address player, uint256 countWon, uint256 countCrea) public onlyOwner {
         require(address(coinSpace) != address(0), "Token address not set");
-        // require(countWon > 0, "no Zero");
-
+        require(!isOver, "the airdrop players is finish");
         airdropGuess(player, countWon);
         airdropCreator(player, countCrea);
     }
 
     // Airdrop tokens based on GspWon * 2 + 10 and use the 80% distribution
-    function airdropGuess(address _player, uint256 _nbGuessWon) internal returns (uint256) {
-        if (_nbGuessWon < 1) return 0;
+    function airdropGuess(address _player, uint256 _nbGuessWon) internal returns (bool) {
+        if (_nbGuessWon < 1) return false;
         uint256 diff = _nbGuessWon.sub(lengthWon[_player]);
 
-        if (diff <= 0) return 0;
+        if (diff <= 0) return false;
 
         lengthWon[_player] = _nbGuessWon;
 
@@ -103,16 +104,21 @@ contract AirDrop is Ownable {
         if (balanceAirDropCpy > 0 && checkBalance > 0) {
             playerBalances[_player] = playerBalances[_player].add(amountToAirdrop);
             balanceAirDropCpy = balanceAirDropCpy.sub(amountToAirdrop);
-            return amountToAirdrop;
-        } else revert("No balance");
+            return true;
+        } else if (checkBalance == 0 && balanceAirDropCpy > 0) {
+            playerBalances[_player] = balanceAirDropCpy;
+            balanceAirDropTeamsCpy = 0;
+            isOver = true;
+        }
+        return false;
     }
 
-    function airdropCreator(address _player, uint256 _nbCreation) internal returns (uint256) {
-        if (_nbCreation < 1) return 0;
+    function airdropCreator(address _player, uint256 _nbCreation) internal returns (bool) {
+        if (_nbCreation < 1) return false;
 
         uint256 diff = _nbCreation.sub(lengthCrea[_player]);
 
-        if (diff <= 0) return 0;
+        if (diff <= 0) return false;
 
         lengthCrea[_player] = _nbCreation;
         uint256 amountToAirdrop = diff.mul(2).add(4);
@@ -121,8 +127,13 @@ contract AirDrop is Ownable {
         if (balanceAirDropCpy > 0 && checkBalance > 0) {
             playerBalances[_player] = playerBalances[_player].add(amountToAirdrop);
             balanceAirDropCpy = balanceAirDropCpy.sub(amountToAirdrop);
-            return amountToAirdrop;
-        } else revert("No balance");
+            return true;
+        } else if (checkBalance == 0 && balanceAirDropCpy > 0) {
+            playerBalances[_player] = balanceAirDropCpy;
+            balanceAirDropTeamsCpy = 0;
+            isOver = true;
+        }
+        return false;
     }
 
     // Airdrop function for stakers (called once per week)
@@ -153,11 +164,11 @@ contract AirDrop is Ownable {
         airdropTeamsCreator(_teams, _counterMint);
     }
 
-    function airdropTeamsGuess(address teams, uint256 _counterGuess) internal returns (uint256) {
-        if (_counterGuess < 1) return 0;
+    function airdropTeamsGuess(address teams, uint256 _counterGuess) internal returns (bool) {
+        if (_counterGuess < 1) return false;
         uint256 diff = _counterGuess.sub(lengthWon[teams]);
 
-        if (diff <= 0) return 0;
+        if (diff <= 0) return false;
 
         lengthWon[teams] = _counterGuess;
 
@@ -167,16 +178,20 @@ contract AirDrop is Ownable {
         if (balanceAirDropTeamsCpy > 0 && checkBalance > 0) {
             playerBalances[teams] = playerBalances[teams].add(amountToAirdrop);
             balanceAirDropTeamsCpy = balanceAirDropTeamsCpy.sub(amountToAirdrop);
-            return amountToAirdrop;
-        } else revert("No balance");
+            return true;
+        } else if (checkBalance == 0 && balanceAirDropTeamsCpy > 0) {
+            playerBalances[teams] = balanceAirDropTeamsCpy;
+            balanceAirDropTeamsCpy = 0;
+        }
+        return false;
     }
 
-    function airdropTeamsCreator(address teams, uint256 _counterMint) internal returns (uint256) {
-        if (_counterMint < 1) return 0;
+    function airdropTeamsCreator(address teams, uint256 _counterMint) internal returns (bool) {
+        if (_counterMint < 1) return false;
 
         uint256 diff = _counterMint.sub(lengthCrea[teams]);
 
-        if (diff <= 0) return 0;
+        if (diff <= 0) return false;
 
         lengthCrea[teams] = _counterMint;
         uint256 amountToAirdrop = diff.mul(2).add(2);
@@ -185,8 +200,12 @@ contract AirDrop is Ownable {
         if (balanceAirDropTeamsCpy > 0 && checkBalance > 0) {
             playerBalances[teams] = playerBalances[teams].add(amountToAirdrop);
             balanceAirDropTeamsCpy = balanceAirDropTeamsCpy.sub(amountToAirdrop);
-            return amountToAirdrop;
-        } else revert("No balance");
+            return true;
+        } else if (checkBalance == 0 && balanceAirDropTeamsCpy > 0) {
+            playerBalances[teams] = balanceAirDropTeamsCpy;
+            balanceAirDropTeamsCpy = 0;
+        }
+        return false;
     }
 
     function airdropTeams(uint256 _counterGuess, uint256 _counterMint) public onlyOwner {
