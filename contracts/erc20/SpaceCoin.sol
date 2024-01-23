@@ -7,10 +7,10 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 contract SpaceCoin is ERC20, Ownable {
     address nftGuessr;
 
-    event Mint(address indexed to, uint256 amount);
+    event Mint(address indexed to, uint amount);
     event ChangeAddressGame(address indexed newAddress);
-    event RecoverTokens(address indexed tokenAddress, address indexed to, uint256 amount);
-    event Burn(address indexed from, uint256 amount);
+    event RecoverTokens(address indexed tokenAddress, address indexed to, uint amount);
+    event Burn(address indexed from, uint amount);
 
     constructor(address _nftGuessr, address _airdrop) ERC20("SpaceCoin", "SPC") {
         transferOwnership(_nftGuessr);
@@ -21,13 +21,13 @@ contract SpaceCoin is ERC20, Ownable {
     }
 
     // Fonction pour permettre au propriétaire de burn des jetons
-    function burn(uint256 amount, address to) external onlyOwner {
+    function burn(uint amount, address to) external onlyOwner {
         _burn(to, amount);
         emit Burn(to, amount);
     }
 
     // Fonction pour permettre au propriétaire de mint de nouveaux jetons
-    function mint(address account, uint256 amount) external onlyOwner {
+    function mint(address account, uint amount) external onlyOwner {
         _mint(account, amount);
         emit Mint(account, amount);
     }

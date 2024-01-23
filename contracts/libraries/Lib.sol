@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 
-pragma solidity ^0.8.19;
+pragma solidity ^0.8.20;
 import "../structs/StructsNftGuessr.sol";
 import "../erc20/SpaceCoin.sol";
 import "../airdrop/AirDrop.sol";
@@ -29,9 +29,9 @@ library Lib {
         return TFHE.decrypt(TFHE.and(isLngValid, isLatValid)); // Check if lat AND long are valid
     }
 
-    // Internal function to remove an element from an array uint256.
-    function removeElement(uint256[] storage array, uint256 element) internal {
-        for (uint256 i = 0; i < array.length; i++) {
+    // Internal function to remove an element from an array uint.
+    function removeElement(uint[] storage array, uint element) internal {
+        for (uint i = 0; i < array.length; i++) {
             if (array[i] == element) {
                 array[i] = array[array.length - 1];
                 array.pop();
@@ -41,8 +41,8 @@ library Lib {
     }
 
     // Internal function to check if an element exists in an array.
-    function contains(uint256[] storage array, uint256 element) internal view returns (bool) {
-        for (uint256 i = 0; i < array.length; i++) {
+    function contains(uint[] storage array, uint element) internal view returns (bool) {
+        for (uint i = 0; i < array.length; i++) {
             if (array[i] == element) {
                 return true;
             }
@@ -51,7 +51,7 @@ library Lib {
     }
 
     // Internal function to create object Location with conversion FHE bytes to euint
-    function createObjectLocation(bytes[] calldata data, uint256 baseIndex) internal pure returns (Location memory) {
+    function createObjectLocation(bytes[] calldata data, uint baseIndex) internal pure returns (Location memory) {
         return
             Location({
                 northLat: TFHE.asEuint32(data[baseIndex]),

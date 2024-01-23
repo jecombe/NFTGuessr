@@ -27,8 +27,8 @@
     "eslint": "^8.28.0",
     "eslint-config-prettier": "^8.5.0",
     "ethers": "^6.4.0",
-    "fhevm": "^0.2.2",
-    "fhevmjs": "^0.2.2",
+    "fhevm": "^0.3.0",
+    "fhevmjs": "^0.3.1",
     "fs-extra": "^10.1.0",
     "hardhat": "^2.12.2",
     "hardhat-deploy": "^0.11.29",
@@ -95,7 +95,6 @@
     "fhevm:faucet:dave": "docker exec -i fhevm faucet $(npx hardhat task:getEthereumAddressDave)"
   },
   "dependencies": {
-    "@openzeppelin/contracts": "^4.9.2",
-    "fhevmjs": "^0.2.2"
+    "@openzeppelin/contracts": "^4.9.2"
   }
 }

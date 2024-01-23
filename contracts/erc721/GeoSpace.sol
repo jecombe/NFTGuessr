@@ -1,4 +1,4 @@
-pragma solidity ^0.8.19;
+pragma solidity ^0.8.20;
 
 import "../libraries/Lib.sol";
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
@@ -9,7 +9,7 @@ import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import "../structs/StructsNftGuessr.sol";
 
 contract GeoSpace is ERC721Enumerable, Ownable, EIP712WithModifier {
-    using SafeMath for uint256;
+    using SafeMath for uint;
     using Counters for Counters.Counter;
 
     Counters.Counter public _tokenIdCounter; // tokenCounter id NFT
@@ -19,23 +19,24 @@ contract GeoSpace is ERC721Enumerable, Ownable, EIP712WithModifier {
     uint public lifeMint = 50;
     uint public subLife = 1;
     uint public addLife = 1;
-    mapping(address => uint256[]) public tokenIdResetLife;
-    mapping(address => mapping(uint256 => uint256)) public tokenIdPoints;
-    mapping(address => uint256) public lifePointTotal;
-    mapping(address => uint256) public saveLifePointTotal;
 
-    //mapping(address => uint256)
+    mapping(address => uint[]) public tokenIdResetLife;
+    mapping(address => uint) public lifePointTotal;
+    mapping(address => uint) public saveLifePointTotal;
 
-    mapping(uint256 => Location) private locations; // Mapping to store NFT locations and non-accessible locations.
-    mapping(address => uint256[]) public creatorNft; // To see all NFTsIDs back in game
-    mapping(address => mapping(uint256 => uint256)) public userFees; // To see all fees for nfts address user
-    mapping(uint256 => address) public ownerNft; // This variable is used to indirectly determine if a user is the owner of the NFT.
-    mapping(uint256 => address) public tokenResetAddress; //  See address user NFT back in game with ID
-    mapping(uint256 => address) public tokenCreationAddress; // See address user NFT creation with ID
-    mapping(address => uint256[]) public resetNft; // To see all NFTsIDs back in game
+    //mapping(address => uint)
+
+    mapping(uint => Location) private locations; // Mapping to store NFT locations and non-accessible locations.
+    mapping(address => uint[]) public creatorNft; // To see all NFTsIDs back in game
+    mapping(address => uint[]) public tokenIdOwned;
+    mapping(address => mapping(uint => uint)) public userFees; // To see all fees for nfts address user
+    mapping(uint => address) public ownerNft; // This variable is used to indirectly determine if a user is the owner of the NFT.
+    mapping(uint => address) public tokenResetAddress; //  See address user NFT back in game with ID
+    mapping(uint => address) public tokenCreationAddress; // See address user NFT creation with ID
+    mapping(address => uint[]) public resetNft; // To see all NFTsIDs back in game
     mapping(address => uint[]) public winners;
-    mapping(address => uint256) public balanceRewardStaker;
-    mapping(address => uint256) public balanceRewardCreator;
+    mapping(address => uint) public balanceRewardStaker;
+    mapping(address => uint) public balanceRewardCreator;
 
     constructor(address _nftGuessr) ERC721("GeoSpace", "GSP") EIP712WithModifier("Authorization token", "1") {
         transferOwnership(_nftGuessr);
@@ -48,27 +49,41 @@ contract GeoSpace is ERC721Enumerable, Ownable, EIP712WithModifier {
     }
     /************************ GETTER FUNCTIONS *************************/
     // Function to get the total number of NFTs in existence.
-    function getTotalNft() public view returns (uint256) {
+    function getTotalNft() public view returns (uint) {
         return totalSupply();
     }
 
-    function getIdsCreator(address player) external view returns (uint256[] memory) {
+    function getIdsCreator(address player) external view returns (uint[] memory) {
         return creatorNft[player];
     }
 
+    function getWinIds(address player) external view returns (uint[] memory) {
+        return winners[player];
+    }
     // Internal function internal to check if location does exist for creation
     function isLocationAlreadyUsed(Location memory newLocation) internal view {
-        for (uint256 i = 1; i <= getTotalNft(); i++) {
+        for (uint i = 1; i <= getTotalNft(); i++) {
             TFHE.optReq(TFHE.ne(newLocation.lat, locations[i].lat));
             TFHE.optReq(TFHE.ne(newLocation.lng, locations[i].lng));
         }
     }
 
-    // Function to get an array of NFTs owned by a user.
-    function getOwnedNFTs(address user) external view returns (uint256[] memory) {
-        uint256[] memory ownedNFTs = new uint256[](balanceOf(user));
+    // // Function to get an array of NFTs owned by a user.
+    // function getOwnedSafeNFTs(address user) external view returns (uint[] memory) {
+    //     uint[] memory ownedNFTs = new uint[](balanceOf(user));
 
-        for (uint256 i = 0; i < balanceOf(user); i++) {
+    //     for (uint i = 0; i < balanceOf(user); i++) {
+    //         ownedNFTs[i] = tokenOfOwnerByIndex(user, i);
+    //     }
+
+    //     return ownedNFTs;
+    // }
+
+    // Function to get an array of NFTs owned by a user.
+    function getOwnedNFTs(address user) external view returns (uint[] memory) {
+        uint[] memory ownedNFTs = new uint[](balanceOf(user));
+
+        for (uint i = 0; i < balanceOf(user); i++) {
             ownedNFTs[i] = tokenOfOwnerByIndex(user, i);
         }
 
@@ -76,12 +91,12 @@ contract GeoSpace is ERC721Enumerable, Ownable, EIP712WithModifier {
     }
 
     // Function to get the IDs and fees of NFTs reset by a user.
-    function getResetNFTsAndFeesByOwner(address user) external view returns (uint256[] memory, uint256[] memory) {
-        uint256[] memory resetNFTs = resetNft[user];
-        uint256[] memory nftFees = new uint256[](resetNFTs.length);
+    function getResetNFTsAndFeesByOwner(address user) external view returns (uint[] memory, uint[] memory) {
+        uint[] memory resetNFTs = resetNft[user];
+        uint[] memory nftFees = new uint[](resetNFTs.length);
 
-        for (uint256 i = 0; i < resetNFTs.length; i++) {
-            uint256 tokenId = resetNFTs[i];
+        for (uint i = 0; i < resetNFTs.length; i++) {
+            uint tokenId = resetNFTs[i];
             nftFees[i] = userFees[user][tokenId];
         }
 
@@ -89,17 +104,17 @@ contract GeoSpace is ERC721Enumerable, Ownable, EIP712WithModifier {
     }
 
     // Function to get the IDs of NFTs reset by a user.
-    function getNFTsResetByOwner(address _owner) external view returns (uint256[] memory) {
+    function getNFTsResetByOwner(address _owner) external view returns (uint[] memory) {
         return resetNft[_owner];
     }
 
     // Function to get the creation IDs and fees of NFTs created by a user. (fees creator is for one round)
-    function getNftCreationAndFeesByUser(address user) external view returns (uint256[] memory, uint256[] memory) {
-        uint256[] memory ids = new uint256[](creatorNft[user].length);
-        uint256[] memory feesNft = new uint256[](creatorNft[user].length);
+    function getNftCreationAndFeesByUser(address user) external view returns (uint[] memory, uint[] memory) {
+        uint[] memory ids = new uint[](creatorNft[user].length);
+        uint[] memory feesNft = new uint[](creatorNft[user].length);
 
-        for (uint256 i = 0; i < creatorNft[user].length; i++) {
-            uint256 tokenId = creatorNft[user][i];
+        for (uint i = 0; i < creatorNft[user].length; i++) {
+            uint tokenId = creatorNft[user][i];
             ids[i] = tokenId;
             feesNft[i] = userFees[user][tokenId];
         }
@@ -107,7 +122,7 @@ contract GeoSpace is ERC721Enumerable, Ownable, EIP712WithModifier {
         return (ids, feesNft);
     }
 
-    function getNftWinnerForUser(address user) external view returns (uint256[] memory) {
+    function getNftWinnerForUser(address user) external view returns (uint[] memory) {
         return winners[user];
     }
 
@@ -120,20 +135,20 @@ contract GeoSpace is ERC721Enumerable, Ownable, EIP712WithModifier {
 
     // Function to get the location of an NFT for owner smart contract using decrypted coordinates.
     function getNFTLocation(
-        uint256 tokenId,
+        uint tokenId,
         bytes32 publicKey,
         bytes calldata signature
     ) external view onlySignedPublicKey(publicKey, signature) isOwner returns (NFTLocation memory) {
         return getLocation(locations[tokenId], publicKey);
     }
     // Function to get the address associated with the reset of an NFT.
-    function getAddressResetWithToken(uint256 _tokenId) public view returns (address) {
+    function getAddressResetWithToken(uint _tokenId) public view returns (address) {
         return tokenResetAddress[_tokenId];
     }
 
     // Function to get the location of an NFT for owner using decrypted coordinates.
     function getNFTLocationForOwner(
-        uint256 tokenId,
+        uint tokenId,
         bytes32 publicKey,
         bytes calldata signature
     ) external view onlySignedPublicKey(publicKey, signature) returns (NFTLocation memory) {
@@ -148,14 +163,14 @@ contract GeoSpace is ERC721Enumerable, Ownable, EIP712WithModifier {
     }
 
     //Function to see if location is valid
-    function isLocationValid(uint256 locationId) internal view returns (bool) {
+    function isLocationValid(uint locationId) internal view returns (bool) {
         return locations[locationId].isValid;
     }
 
     // Fonction pour vérifier si le joueur a déjà remporté ce NFT
-    function isWinner(address joueur, uint256 nftId) public view returns (bool) {
+    function isWinner(address joueur, uint nftId) public view returns (bool) {
         uint[] memory nftIds = winners[joueur];
-        for (uint256 i = 0; i < nftIds.length; i++) {
+        for (uint i = 0; i < nftIds.length; i++) {
             if (nftIds[i] == nftId) {
                 return true;
             }
@@ -186,9 +201,9 @@ contract GeoSpace is ERC721Enumerable, Ownable, EIP712WithModifier {
 
     function subLifePointTotal(address _ownerNft) internal view returns (uint) {
         // Calculer combien de points vous devez enlever
-        uint256 expectedTotalPointsLength = tokenIdResetLife[_ownerNft].length; // 2
-        uint256 expectedTotalPoints = expectedTotalPointsLength.mul(lifeMint); // 100
-        uint256 pointsToRemove = expectedTotalPoints > lifePointTotal[_ownerNft]
+        uint expectedTotalPointsLength = tokenIdResetLife[_ownerNft].length; // 2
+        uint expectedTotalPoints = expectedTotalPointsLength.mul(lifeMint); // 100
+        uint pointsToRemove = expectedTotalPoints >= lifePointTotal[_ownerNft]
             ? expectedTotalPoints.sub(lifePointTotal[_ownerNft])
             : 0;
         return pointsToRemove;
@@ -222,7 +237,7 @@ contract GeoSpace is ERC721Enumerable, Ownable, EIP712WithModifier {
     /************************ MINTING FUNCTIONS *************************/
 
     // Internal function to set data mapping and array for minting NFT GeoSpace function
-    function setDataForMinting(address player, uint256 tokenId, uint256 feesToSet, Location memory locate) internal {
+    function setDataForMinting(address player, uint tokenId, uint feesToSet, Location memory locate) internal {
         locations[tokenId] = locate;
         userFees[player][tokenId] = feesToSet;
         creatorNft[player].push(tokenId);
@@ -235,11 +250,11 @@ contract GeoSpace is ERC721Enumerable, Ownable, EIP712WithModifier {
     function mint(
         address player,
         bytes[] calldata data,
-        uint256 feesData,
-        uint256 baseIndex
-    ) external onlyOwner returns (uint256) {
+        uint feesData,
+        uint baseIndex
+    ) external onlyOwner returns (uint) {
         _tokenIdCounter.increment();
-        uint256 tokenId = _tokenIdCounter.current();
+        uint tokenId = _tokenIdCounter.current();
 
         Location memory locate = Lib.createObjectLocation(data, baseIndex);
 
@@ -254,13 +269,13 @@ contract GeoSpace is ERC721Enumerable, Ownable, EIP712WithModifier {
         address player,
         bytes calldata userLatitude,
         bytes calldata userLongitude,
-        uint256 _tokenId
+        uint _tokenId
     ) external payable onlyOwner returns (bool) {
         // Convert bytes to euint32
         euint32 lat = TFHE.asEuint32(userLatitude);
         euint32 lng = TFHE.asEuint32(userLongitude);
 
-        uint256 totalSupply = totalSupply();
+        uint totalSupply = totalSupply();
 
         require(_tokenId <= totalSupply, "Your token id is invalid");
         require(isLocationValid(_tokenId), "Location does not valid");
@@ -282,9 +297,9 @@ contract GeoSpace is ERC721Enumerable, Ownable, EIP712WithModifier {
         return false;
     }
     // Internal function to reset mapping
-    function resetMapping(uint256 tokenId, address _ownerNft) internal {
+    function resetMapping(uint tokenId, address _ownerNft) internal {
         if (Lib.contains(tokenIdResetLife[_ownerNft], tokenId)) {
-            uint256 amtLifeSub = subLifePointTotal(_ownerNft);
+            uint amtLifeSub = subLifePointTotal(_ownerNft);
             if (amtLifeSub != 0) lifePointTotal[_ownerNft] = lifePointTotal[_ownerNft].sub(amtLifeSub);
         }
         delete userFees[_ownerNft][tokenId];
@@ -294,7 +309,7 @@ contract GeoSpace is ERC721Enumerable, Ownable, EIP712WithModifier {
         delete tokenResetAddress[tokenId];
     }
 
-    function resetNFT(address player, uint256 tokenId, uint256 tax) external onlyOwner {
+    function resetNFT(address player, uint tokenId, uint tax) external onlyOwner {
         require(ownerOf(tokenId) == player, "You can only put your own NFT in the game");
         require(!Lib.contains(resetNft[player], tokenId), "NFT is already back in game");
         require(!Lib.contains(creatorNft[player], tokenId), "the creator cannot reset nft");
@@ -310,7 +325,7 @@ contract GeoSpace is ERC721Enumerable, Ownable, EIP712WithModifier {
         _transfer(player, address(this), tokenId);
     }
 
-    function cancelResetNFT(address player, uint256 tokenId) external onlyOwner {
+    function cancelResetNFT(address player, uint tokenId) external onlyOwner {
         require(Lib.contains(resetNft[player], tokenId), "NFT is not back in game");
         require(!Lib.contains(creatorNft[player], tokenId), "the creator cannot cancel reset nft");
 
@@ -328,7 +343,7 @@ contract GeoSpace is ERC721Enumerable, Ownable, EIP712WithModifier {
      * @dev brun nft with id, reset mapping, delete location and all creations ids and address
      * @param tokenId An array of NFT IDs to cancel the reset for.
      */
-    function burnNFT(uint256 tokenId) external isOwner {
+    function burnNFT(uint tokenId) external isOwner {
         address actualOwner = ownerNft[tokenId];
 
         resetMapping(tokenId, actualOwner);
