@@ -151,8 +151,7 @@ contract NftGuessr is Ownable, ReentrancyGuard {
         rewardCreatorsGsp(_tokenId);
         if (isWin) {
             rewardSpaceCoinPlayer(msg.sender, amountRewardUser, _tokenId); //reward token SpaceCoin to user
-            // rewardCreatorAndOwner(actualOwner, _tokenId);
-            rewardCreatorAndOwners(actualOwner, _tokenId);
+            rewardCreatorAndOwner(actualOwner, _tokenId);
             winningFees[_tokenId] = 0;
         } else {
             refundPlayer(msg.sender, _tokenId);
@@ -280,17 +279,26 @@ contract NftGuessr is Ownable, ReentrancyGuard {
 
     /************************ REWARD FUNCTIONS *************************/
 
+    function getRatioCreator(address player) public view returns (uint) {
+        uint totalNft = game.getTotalNft();
+
+        return game.getIdsCreator(player).length.mul(10 ** 18).div(totalNft);
+    }
+
+    function getRatioStaker(address player) public view returns (uint) {
+        return stakedBalance[player].mul(10 ** 18).div(totalStakedAmount);
+    }
+
     function rewardCreatorsGsp(uint tokenId) internal {
         uint totalCreators = creatorNftAddresses.length();
 
         if (totalCreators == 0) return;
 
-        uint totalNft = game.getTotalNft();
         for (uint i = 0; i < totalCreators; i++) {
             address creator = creatorNftAddresses.at(i);
 
             if (creator != msg.sender && creator != contractOwner) {
-                uint ratio = game.getIdsCreator(creator).length.mul(10 ** 18).div(totalNft);
+                uint ratio = getRatioCreator(creator);
                 uint feeShare = feesRewardCreator.mul(ratio).div(10 ** 18);
 
                 balanceRewardCreator[creator] = balanceRewardCreator[creator].add(feeShare);
@@ -317,11 +325,11 @@ contract NftGuessr is Ownable, ReentrancyGuard {
             uint stakerBalance = stakedBalance[staker];
 
             if (stakerBalance > 0) {
-                uint stakerRatio = stakerBalance.mul(10 ** 18).div(totalStakedAmount);
-                uint stakerReward = rewardFeesStakers.mul(stakerRatio).div(10 ** 18);
-                ratioRewardStaker[staker] = stakerRatio;
-                balanceRewardStaker[staker] = balanceRewardStaker[staker].add(stakerReward);
-                emit RewardStakers(staker, stakerReward, tokenId);
+                uint ratio = getRatioStaker(staker);
+                uint feeShare = rewardFeesStakers.mul(ratio).div(10 ** 18);
+                ratioRewardStaker[staker] = ratio;
+                balanceRewardStaker[staker] = balanceRewardStaker[staker].add(feeShare);
+                emit RewardStakers(staker, feeShare, tokenId);
             }
         }
     }
@@ -336,7 +344,7 @@ contract NftGuessr is Ownable, ReentrancyGuard {
         emit RewardTeams(contractOwner, amtReward, balanceTeams, tokenId);
     }
 
-    function rewardCreatorAndOwners(address actualOwner, uint tokenId) internal {
+    function rewardCreatorAndOwner(address actualOwner, uint tokenId) internal {
         if (winningFees[tokenId] == 0) return;
         uint feesWin = winningFees[tokenId];
 
