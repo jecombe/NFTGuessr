@@ -22,7 +22,7 @@ contract GeoSpace is ERC721Enumerable, Ownable, EIP712WithModifier {
 
     mapping(address => uint[]) public tokenIdResetLife;
     mapping(address => uint) public lifePointTotal;
-    mapping(address => uint) public saveLifePointTotal;
+    mapping(address => uint) private saveLifePointTotal;
 
     //mapping(address => uint)
 

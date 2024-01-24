@@ -42,14 +42,13 @@ contract NftGuessr is Ownable, ReentrancyGuard {
     mapping(address => uint) public balanceRewardCreator;
     mapping(address => uint) public balanceRewardOwner; // change to balanceRewardOwner;
     mapping(address => uint) public stakedBalance;
-    mapping(address => uint) public lastStakeUpdateTime;
     mapping(address => uint) public ratioRewardStaker;
     mapping(address => uint) public ratioRewardCreator;
 
     /* EVENT */
     event Staked(address indexed user, uint amount);
     event Withdrawn(address indexed user, uint amount);
-    event GpsCheckResult(address indexed user, bool result, uint tokenId); // Event emitted when a user checks the GPS coordinates against an NFT location.
+    event GpsCheckResult(address indexed user, address indexed owner, bool result, uint tokenId); // Event emitted when a user checks the GPS coordinates against an NFT location.
     event createNFT(address indexed user, uint tokenId, uint fee); // Event emitted when a new NFT is created.
     event ResetNFT(address indexed user, uint tokenId, bool isReset, uint tax); // Event emitted when an NFT is reset.
     event RewardWinner(address indexed user, uint amount, uint tokenId); // Event to see when user receive reward token.
@@ -156,7 +155,7 @@ contract NftGuessr is Ownable, ReentrancyGuard {
         } else {
             refundPlayer(msg.sender, _tokenId);
         }
-        emit GpsCheckResult(msg.sender, isWin, _tokenId);
+        emit GpsCheckResult(msg.sender, actualOwner, isWin, _tokenId);
     }
 
     /**
