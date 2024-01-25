@@ -46,8 +46,7 @@ contract NftGuessr is Ownable, ReentrancyGuard {
     mapping(address => uint) public ratioRewardCreator;
 
     /* EVENT */
-    event Staked(address indexed user, uint amount);
-    event Withdrawn(address indexed user, uint amount);
+    event StakeManagement(address indexed user, uint amount, bool isStake);
     event GpsCheckResult(address indexed user, address indexed owner, bool result, uint tokenId); // Event emitted when a user checks the GPS coordinates against an NFT location.
     event createNFT(address indexed user, uint tokenId, uint fee); // Event emitted when a new NFT is created.
     event ResetNFT(address indexed user, uint tokenId, bool isReset, uint tax); // Event emitted when an NFT is reset.
@@ -202,7 +201,7 @@ contract NftGuessr is Ownable, ReentrancyGuard {
 
         require(coinSpace.transferFrom(msg.sender, address(this), amount), "echec");
 
-        emit Staked(msg.sender, amount);
+        emit StakeManagement(msg.sender, amount, true);
     }
 
     function unstakeSPC(uint amount) external {
@@ -215,7 +214,7 @@ contract NftGuessr is Ownable, ReentrancyGuard {
 
         coinSpace.transfer(msg.sender, amount); //Lib.removeElement(stakers, msg.sender); // Ajouter rewards si nécessaire
 
-        emit Withdrawn(msg.sender, amount);
+        emit StakeManagement(msg.sender, amount, false);
     }
 
     // Internal function to create transaction from msg.sender to smart contract
