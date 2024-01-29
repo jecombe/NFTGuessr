@@ -45,6 +45,10 @@ contract NftGuessr is Ownable, ReentrancyGuard {
     mapping(address => uint) public ratioRewardStaker;
     mapping(address => uint) public ratioRewardCreator;
 
+    mapping(address => uint256) public dailyCount;
+    uint256 public dailyLimit = 10;
+    uint256 public lastDay;
+
     /* EVENT */
     event StakeManagement(address indexed user, uint amount, bool isStake);
     event GpsCheckResult(address indexed user, address indexed owner, bool result, uint tokenId); // Event emitted when a user checks the GPS coordinates against an NFT location.
@@ -56,11 +60,13 @@ contract NftGuessr is Ownable, ReentrancyGuard {
     event RewardOwnerFees(address indexed user, uint amountReward, uint tokenId);
     event RewardStakers(address indexed user, uint amountReward, uint tokenId); // Event to see when user receive reward token.
     event RewardTeams(address indexed user, uint amountReward, uint balance, uint tokenId); // Event to see when user receive reward token.
+    event FunctionCalled(address indexed caller, uint numberCall);
 
     // Contract constructor initializes base token URI and owner.
     constructor() {
         _baseTokenURI = "";
         contractOwner = msg.sender;
+        lastDay = getCurrentDay(block.timestamp);
     }
 
     receive() external payable {}
@@ -73,7 +79,43 @@ contract NftGuessr is Ownable, ReentrancyGuard {
         _;
     }
 
+    modifier withinDailyLimit() {
+        require(dailyCount[msg.sender] < dailyLimit, "Daily limit exceeded");
+        _;
+    }
+
+    modifier updateDailyLimit() {
+        uint256 currentDay = getCurrentDay(block.timestamp);
+        if (currentDay > lastDay) {
+            lastDay = currentDay;
+            // Ne réinitialisez le compteur quotidien que si la journée a changé
+            if (dailyCount[msg.sender] > 0) {
+                dailyCount[msg.sender] = 0;
+            }
+        }
+        _;
+    }
+
+    function changeDailyCount(uint limit) external onlyOwner {
+        dailyLimit = limit;
+    }
+
+    function getCurrentDay(uint256 timestamp) internal pure returns (uint256) {
+        uint256 secondsInDay = 86400; // Nombre de secondes dans une journée
+        return timestamp / secondsInDay;
+    }
+
     /************************ GAMING FUNCTIONS *************************/
+
+    function IsAuthorize() external withinDailyLimit updateDailyLimit {
+        // Votre logique de fonction ici
+        // ...
+
+        // Incrémentation du compteur quotidien pour l'appelant
+        dailyCount[msg.sender]++;
+
+        emit FunctionCalled(msg.sender, dailyCount[msg.sender]);
+    }
 
     /**
      * @dev createGPS one or more NFTs, with tax (one round) just for owner smart contract. set on 0
