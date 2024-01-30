@@ -79,6 +79,9 @@ contract NftGuessr is Ownable, ReentrancyGuard {
         _;
     }
 
+    function changeDailyLimit(uint _dailyLimit) external onlyOwner {
+        dailyLimit = _dailyLimit;
+    }
     // modifier withinDailyLimit() {
     //     require(dailyCount[msg.sender] < dailyLimit, "Daily limit exceeded");
     //     _;
@@ -111,7 +114,7 @@ contract NftGuessr is Ownable, ReentrancyGuard {
         }
 
         // Vérifie si l'utilisateur peut effectuer un nouvel appel
-        require(callCount[msg.sender] < 2, "You have reached the maximum number of calls");
+        require(callCount[msg.sender] < dailyLimit, "You have reached the maximum number of calls");
         if (callCount[msg.sender] == 0) {
             lastCallTimestamp[msg.sender] = block.timestamp;
         }
