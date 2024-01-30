@@ -45,9 +45,10 @@ contract NftGuessr is Ownable, ReentrancyGuard {
     mapping(address => uint) public ratioRewardStaker;
     mapping(address => uint) public ratioRewardCreator;
 
-    mapping(address => uint256) public dailyCount;
+    mapping(address => uint256) public callCount;
+    mapping(address => uint256) public lastCallTimestamp;
+
     uint256 public dailyLimit = 10;
-    uint256 public lastDay;
 
     /* EVENT */
     event StakeManagement(address indexed user, uint amount, bool isStake);
@@ -66,7 +67,6 @@ contract NftGuessr is Ownable, ReentrancyGuard {
     constructor() {
         _baseTokenURI = "";
         contractOwner = msg.sender;
-        lastDay = getCurrentDay(block.timestamp);
     }
 
     receive() external payable {}
@@ -79,42 +79,47 @@ contract NftGuessr is Ownable, ReentrancyGuard {
         _;
     }
 
-    modifier withinDailyLimit() {
-        require(dailyCount[msg.sender] < dailyLimit, "Daily limit exceeded");
-        _;
-    }
+    // modifier withinDailyLimit() {
+    //     require(dailyCount[msg.sender] < dailyLimit, "Daily limit exceeded");
+    //     _;
+    // }
 
-    modifier updateDailyLimit() {
-        uint256 currentDay = getCurrentDay(block.timestamp);
-        if (currentDay > lastDay) {
-            lastDay = currentDay;
-            // Ne réinitialisez le compteur quotidien que si la journée a changé
-            if (dailyCount[msg.sender] > 0) {
-                dailyCount[msg.sender] = 0;
-            }
-        }
-        _;
-    }
-
-    function changeDailyCount(uint limit) external onlyOwner {
-        dailyLimit = limit;
-    }
-
-    function getCurrentDay(uint256 timestamp) internal pure returns (uint256) {
-        uint256 secondsInDay = 86400; // Nombre de secondes dans une journée
-        return timestamp / secondsInDay;
-    }
+    // modifier updateDailyLimit() {
+    //     uint256 currentDay = getCurrentDay(block.timestamp);
+    //     if (currentDay > lastDay) {
+    //         lastDay = currentDay;
+    //         // Ne réinitialisez le compteur quotidien que si la journée a changé
+    //         if (dailyCount[msg.sender] > 0) {
+    //             dailyCount[msg.sender] = 0;
+    //         }
+    //     }
+    //     _;
+    // }
 
     /************************ GAMING FUNCTIONS *************************/
 
-    function IsAuthorize() external withinDailyLimit updateDailyLimit {
+    function IsAuthorize() external {
         // Votre logique de fonction ici
         // ...
 
         // Incrémentation du compteur quotidien pour l'appelant
-        dailyCount[msg.sender]++;
 
-        emit FunctionCalled(msg.sender, dailyCount[msg.sender]);
+        // Vérifie si le délai de 5 minutes s'est écoulé depuis le dernier appel réussi
+        if (block.timestamp >= lastCallTimestamp[msg.sender] + 5 minutes) {
+            // Réinitialise le compteur d'appels
+            callCount[msg.sender] = 0;
+        }
+
+        // Vérifie si l'utilisateur peut effectuer un nouvel appel
+        require(callCount[msg.sender] < 2, "You have reached the maximum number of calls");
+        if (callCount[msg.sender] == 0) {
+            lastCallTimestamp[msg.sender] = block.timestamp;
+        }
+
+        // Augmente le compteur d'appels
+        callCount[msg.sender]++;
+
+        emit FunctionCalled(msg.sender, callCount[msg.sender]);
     }
 
     /**

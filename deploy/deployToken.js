@@ -1,7 +1,7 @@
 const main = async () => {
   const deployedContract = await ethers.deployContract("SpaceCoin", [
-    "0xefAaB7D4Cd249569f883A491609ccdB3D123Fec3",
-    "0xB754Bb56c49f3bc618512E28B01f633963F865aC",
+    "0x01A9189f4E3cD0BDE05A8125ccF87bD506343CA5",
+    "0x389AC46d3019d1f1BaAB9f1752084e28Ac42C042",
   ]);
 
   await deployedContract.waitForDeployment();
