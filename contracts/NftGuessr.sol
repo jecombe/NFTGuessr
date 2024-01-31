@@ -47,8 +47,8 @@ contract NftGuessr is Ownable, ReentrancyGuard {
 
     mapping(address => uint256) public callCount;
     mapping(address => uint256) public lastCallTimestamp;
-
-    uint256 public dailyLimit = 10;
+    uint public dailyLimit = 10;
+    uint public limit = 1 days;
 
     /* EVENT */
     event StakeManagement(address indexed user, uint amount, bool isStake);
@@ -108,7 +108,7 @@ contract NftGuessr is Ownable, ReentrancyGuard {
         // Incrémentation du compteur quotidien pour l'appelant
 
         // Vérifie si le délai de 5 minutes s'est écoulé depuis le dernier appel réussi
-        if (block.timestamp >= lastCallTimestamp[msg.sender] + 5 minutes) {
+        if (block.timestamp >= lastCallTimestamp[msg.sender] + limit) {
             // Réinitialise le compteur d'appels
             callCount[msg.sender] = 0;
         }
