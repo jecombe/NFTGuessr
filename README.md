@@ -14,11 +14,10 @@ If you have found it, you win the NFT and 2 ERC20 SpaceCoin (SPC).
 
 Four options are available to you:
 
-- 💼 just hold your NFTs in your wallet.
-- 🔄 Either you put the NFT GSP back into play with your ZAMA tax for one round.
-- 🎁 Stake one or more NFTs GSP to have SpaceCoin daily reward (actually 1 SPC).
-- 🔓 Stake minimum 3 NFTs GSP to unlock the right to create NFTs (Cost: 1 SPC) for the game, including a ZAMA tax valid
-  for one game round.
+- 💼 just hold your GeoSpace in your wallet.
+- 🔄 Either you put the GeoSpace back into play with your ZAMA tax for one round.
+- 🎁 Re-engage your GeoSpace in game with a winning tax. Also, unlock the right to create other NFTs for the game.
+- 🔓 Stake SpaceCoin to earn Zama when a player makes a guess request.
 
 ## Games explain description
 
@@ -31,37 +30,34 @@ they can **NEVER** win that NFT.
 
 ### Token management
 
-Token ERC20 with oppenZepplin. A dynamic total supply: The NftGuessr smart contract holds 10,000 SPC, and the creator of
-the NftGuessr contract also holds 10,000 SPC. Additional SPC is created when a player generates new NFTs at a cost of 1
-SPC each; the NftGuessr smart contract mints 2 SPC for each new NFT created. When a user win a NFT GSP, he receive 2
-token SPC.
+1 SPC is created when a player win a NFT. 1 SPC is burn when a player create a NFT.
 
 ### Fees management
 
-- Base fees in Zama (ZAMA) used for guess requests (1 ZAMA): All Zama returns to the smart contract, whose owner
-  controls it and can withdraw.
-- Geospace NFT creation fees in SpaceCoin (SPC) (1 SPC): The SPC fees are distributed to all NFT creators in a fair
-  manner.
+- Guess fees: 2 Zama => 1 for teams, and 1 distribute with all staker of SpaceCoin.
+- Win fees: a creator or player can set a winning tax. If the player wins, then the prize money will be distributed to
+  the previous owner, and 3% will go to the creator of the NFT.
 
-### Staker
+### Staker SPC
 
-A staker delegates their NFTs to the smart contract. If a staker has **3 staked NFTs GSP**, it unlocks access to create
-additional NFTs. If a staker has **1 staked NFTs GSP**, receive daily reward (actually 1 SPC)
+The spaceCoin staker will receive Zama tokens when a player makes a guess.
 
 ### Back in game
 
-An NFT holder can put their NFT back into play with a tax for **one game round**.
+An NFT holder can put their NFT back into play with a winning tax. With this action the player can create other NFT for
+the game. Limited by lifePoint creation.
 
 ### Check Gps
 
-A user sends an NFT ID along with latitude and longitude (without decimal (1e15)), and a **MINIMUM** of 1 token + NFT
-fees to verify if their location is within a 5 km² radius of the specified NFT ID. If it is, the NFT is transferred to
-the user; otherwise, nothing happens.
+A user sends an NFT ID along with latitude and longitude (without decimal (1e15)), and a **MINIMUM** of 2 token + NFT
+winning fees to verify if their location is within a 5 km² radius of the specified NFT ID. If it is, the NFT is
+transferred to the user; otherwise, nothing happens.
 
 ### Create Gps
 
 If the user has access to NFT creation, they must have a valid location, meaning with a latitude and longitude and
-others with conversion (without decimal (1e15)) for which a Google Street View is available. **It's cost 1 SPC**.
+others with conversion (without decimal (1e15)) for which a Google Street View is available. **It's cost 1 SPC**. => is
+burn
 
 ## Table of Contents
 
