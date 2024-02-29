@@ -15,8 +15,8 @@ If you have found it, you win the NFT and 2 ERC20 SpaceCoin (SPC).
 Four options are available to you:
 
 - 💼 just hold your GeoSpace in your wallet.
-- 🔄 Either you put the GeoSpace back into play with your ZAMA tax for one round.
-- 🎁 Re-engage your GeoSpace in game with a winning tax. Also, unlock the right to create other NFTs for the game.
+- 🎁 Re-engage your GeoSpace in game with a winning tax (ZAMA). Also, unlock the right to create other NFTs for the game
+  and you can earn SpaceCoin.
 - 🔓 Stake SpaceCoin to earn Zama when a player makes a guess request.
 
 ## Games explain description
