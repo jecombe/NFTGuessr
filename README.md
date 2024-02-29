@@ -2,8 +2,8 @@
 
 ## Overview
 
-- [NFTGuessr](http://nftguessr.com)
-- [Medium](https://medium.com/@jeremcombe/nftguessr-6dcfde3621ac)
+- [NFTGuessr](https://nftguessr.com)
+- [WhitePaper](https://nftguessr.gitbook.io/white-paper/)
 
 NFTGuessr is a game similar to GeoGuessr.  
 The idea is to find the location represented by NFT of a Google Street View.  
