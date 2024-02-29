@@ -15,7 +15,6 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "fhevm/abstracts/EIP712WithModifier.sol";
 
 library Lib {
-    // Définissez vos fonctions de bibliothèque ici
     // Internal function to check if user in on nft radius.
     function isOnPoint(euint32 lat, euint32 lng, Location memory location) internal view returns (bool) {
         ebool isLatSouth = TFHE.ge(lat, location.southLat); //if lat >= location.southLat => true if correct

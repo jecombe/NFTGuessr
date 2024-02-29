@@ -15,18 +15,15 @@ contract SpaceCoin is ERC20, Ownable {
     constructor(address _nftGuessr, address _airdrop) ERC20("SpaceCoin", "SPC") {
         transferOwnership(_nftGuessr);
 
-        // Minter le créateur initial avec un certain montant
         _mint(_airdrop, 50000000 * 10 ** decimals());
         // _mint(msg.sender, 10000 * 10 ** decimals());
     }
 
-    // Fonction pour permettre au propriétaire de burn des jetons
     function burn(uint amount, address to) external onlyOwner {
         _burn(to, amount);
         emit Burn(to, amount);
     }
 
-    // Fonction pour permettre au propriétaire de mint de nouveaux jetons
     function mint(address account, uint amount) external onlyOwner {
         _mint(account, amount);
         emit Mint(account, amount);

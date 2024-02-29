@@ -82,44 +82,19 @@ contract NftGuessr is Ownable, ReentrancyGuard {
     function changeDailyLimit(uint _dailyLimit) external onlyOwner {
         dailyLimit = _dailyLimit;
     }
-    // modifier withinDailyLimit() {
-    //     require(dailyCount[msg.sender] < dailyLimit, "Daily limit exceeded");
-    //     _;
-    // }
-
-    // modifier updateDailyLimit() {
-    //     uint256 currentDay = getCurrentDay(block.timestamp);
-    //     if (currentDay > lastDay) {
-    //         lastDay = currentDay;
-    //         // Ne réinitialisez le compteur quotidien que si la journée a changé
-    //         if (dailyCount[msg.sender] > 0) {
-    //             dailyCount[msg.sender] = 0;
-    //         }
-    //     }
-    //     _;
-    // }
 
     /************************ GAMING FUNCTIONS *************************/
 
     function IsAuthorize() external {
-        // Votre logique de fonction ici
-        // ...
-
-        // Incrémentation du compteur quotidien pour l'appelant
-
-        // Vérifie si le délai de 5 minutes s'est écoulé depuis le dernier appel réussi
         if (block.timestamp >= lastCallTimestamp[msg.sender] + limit) {
-            // Réinitialise le compteur d'appels
             callCount[msg.sender] = 0;
         }
 
-        // Vérifie si l'utilisateur peut effectuer un nouvel appel
         require(callCount[msg.sender] < dailyLimit, "You have reached the maximum number of calls");
         if (callCount[msg.sender] == 0) {
             lastCallTimestamp[msg.sender] = block.timestamp;
         }
 
-        // Augmente le compteur d'appels
         callCount[msg.sender]++;
 
         emit FunctionCalled(msg.sender, callCount[msg.sender]);
@@ -400,14 +375,8 @@ contract NftGuessr is Ownable, ReentrancyGuard {
 
         uint amtCreator = feesWin.mul(rewardPercentageCreator).div(100);
 
-        // Calculer le reste pour le propriétaire en utilisant SafeMath
         uint amtOwner = feesWin.sub(amtCreator);
 
-        // (bool success, ) = previousOwner.call{ value: amtOwner }("");
-        // (bool successCrea, ) = creator.call{ value: amtCreator }("");
-
-        // require(success, "Refund failed");
-        // require(successCrea, "Refund failed");
         balanceRewardOwner[creator] = balanceRewardOwner[creator].add(amtCreator);
         balanceRewardOwner[actualOwner] = balanceRewardOwner[actualOwner].add(amtOwner);
 
