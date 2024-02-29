@@ -30,7 +30,10 @@ they can **NEVER** win that NFT.
 
 ### Token management
 
-1 SPC is created when a player win a NFT. 1 SPC is burn when a player create a NFT.
+- A total of 50 million SpaceCoin tokens are created. They are allocated among the team (10%) and the users (80%), with
+  a portion reserved (10%). The distribution is carried out using the game.
+- 1 SPC is minted when player guess and distribute with all creators of GeoSpace (the creators must call claimReward). 1
+  SPC is created when a player win a NFT. 1 SPC is burn when a player create a NFT.
 
 ### Fees management
 
