@@ -11,11 +11,11 @@ struct NFTLocation {
 }
 
 struct Location {
-    euint32 northLat;
-    euint32 southLat;
-    euint32 eastLon;
-    euint32 westLon;
-    euint32 lat;
-    euint32 lng;
+    euint64 northLat;
+    euint64 southLat;
+    euint64 eastLon;
+    euint64 westLon;
+    euint64 lat;
+    euint64 lng;
     bool isValid;
 }

@@ -271,9 +271,9 @@ contract GeoSpace is ERC721Enumerable, Ownable, EIP712WithModifier {
         bytes calldata userLongitude,
         uint _tokenId
     ) external payable onlyOwner returns (bool) {
-        // Convert bytes to euint32
-        euint32 lat = TFHE.asEuint32(userLatitude);
-        euint32 lng = TFHE.asEuint32(userLongitude);
+        // Convert bytes to euint64
+        euint64 lat = TFHE.asEuint64(userLatitude);
+        euint64 lng = TFHE.asEuint64(userLongitude);
 
         uint totalSupply = totalSupply();
 

@@ -135,12 +135,12 @@ Represents the encrypted geographical coordinates of an NFT location.
 
 ```solidity
 struct Location {
-  euint32 northLat;
-  euint32 southLat;
-  euint32 eastLon;
-  euint32 westLon;
-  euint32 lat;
-  euint32 lng;
+  euint64 northLat;
+  euint64 southLat;
+  euint64 eastLon;
+  euint64 westLon;
+  euint64 lat;
+  euint64 lng;
   bool isValid;
 }
 ```
@@ -151,10 +151,10 @@ Represents the decrypted geographical coordinates of an NFT location.
 
 ```solidity
 struct NFTLocation {
-  uint32 northLat;
-  uint32 southLat;
-  uint32 eastLon;
-  uint32 westLon;
+  uint64 northLat;
+  uint64 southLat;
+  uint64 eastLon;
+  uint64 westLon;
   uint lat;
   uint lng;
 }
@@ -496,7 +496,7 @@ Internal function to mint NFTs with location data and associated fees.
 1. Check if `data.length` is good.
 2. Loop through the `data` array.
 3. Increment counter `tokenId`
-4. Create struct `Location` with encrypted value. (`euint32`).
+4. Create struct `Location` with encrypted value. (`euint64`).
 5. Check if location exist on smart contract with `isLocationAlreadyUsed`.
 6. If ok, `locate` is save on `locations`.
 7. Set mapping `userFees` with `msg.sender`.
@@ -584,7 +584,7 @@ Internal function to check if a set of coordinates is within a location.
 - Use `TFHE.decrypt` to decrypt boolean and use it on function checkGps check if location is good.
 
 ```solidity
-function isOnPoint(euint32 lat, euint32 lng, Location memory location) internal view returns (bool) {
+function isOnPoint(euint64 lat, euint64 lng, Location memory location) internal view returns (bool) {
   // ... (Check if coordinates are within location functionality)
 }
 ```

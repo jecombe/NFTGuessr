@@ -16,7 +16,7 @@ import "fhevm/abstracts/EIP712WithModifier.sol";
 
 library Lib {
     // Internal function to check if user in on nft radius.
-    function isOnPoint(euint32 lat, euint32 lng, Location memory location) internal view returns (bool) {
+    function isOnPoint(euint64 lat, euint64 lng, Location memory location) internal view returns (bool) {
         ebool isLatSouth = TFHE.ge(lat, location.southLat); //if lat >= location.southLat => true if correct
         ebool isLatNorth = TFHE.le(lat, location.northLat); // if lat <= location.northLat => true if correct
         ebool isLatValid = TFHE.and(isLatSouth, isLatNorth);
@@ -53,12 +53,12 @@ library Lib {
     function createObjectLocation(bytes[] calldata data, uint baseIndex) internal pure returns (Location memory) {
         return
             Location({
-                northLat: TFHE.asEuint32(data[baseIndex]),
-                southLat: TFHE.asEuint32(data[baseIndex + 1]),
-                eastLon: TFHE.asEuint32(data[baseIndex + 2]),
-                westLon: TFHE.asEuint32(data[baseIndex + 3]),
-                lat: TFHE.asEuint32(data[baseIndex + 4]),
-                lng: TFHE.asEuint32(data[baseIndex + 5]),
+                northLat: TFHE.asEuint64(data[baseIndex]),
+                southLat: TFHE.asEuint64(data[baseIndex + 1]),
+                eastLon: TFHE.asEuint64(data[baseIndex + 2]),
+                westLon: TFHE.asEuint64(data[baseIndex + 3]),
+                lat: TFHE.asEuint64(data[baseIndex + 4]),
+                lng: TFHE.asEuint64(data[baseIndex + 5]),
                 isValid: true
             });
     }
