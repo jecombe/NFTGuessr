@@ -8,11 +8,11 @@
 NFTGuessr is a game similar to GeoGuessr.  
 The idea is to find the location represented by NFT of a Google Street View.  
 This game operates on the EVM (Zama). Each location is associated with an NFT GeoSpace (GSP) encrypted with FHE. To
-inquire if the found location is correct (if is within the 5 km² radius of the NFT location), it costs you 1 Zama (base
-fee).  
-If you have found it, you win the NFT and 2 ERC20 SpaceCoin (SPC).
+inquire if the found location is correct (if is within the 5 km² radius of the NFT location), it costs you 2 Zama (guess
+fee) + winning fees (default is 0, but bet set by the woner and creator of nft GeoSpace).  
+If you have found it, you win the NFT and 1 ERC20 SpaceCoin (SPC).
 
-Four options are available to you:
+Three options are available to you:
 
 - 💼 just hold your GeoSpace in your wallet.
 - 🎁 Re-engage your GeoSpace in game with a winning tax (ZAMA). Also, unlock the right to create other NFTs for the game
@@ -23,10 +23,10 @@ Four options are available to you:
 
 ### Smart contract NFTGuessr
 
-The smart contract has a fixed tax ZAMA (1 token by default) and a radius (5 km² by default). The contract owner can
-change this values and withdraw fees. When an NFT is held by a user, it is not possible for another user to find the
-NFT. If a user puts their NFT back into play, **they will not be able to win it**. If a user is the creator of an NFT,
-they can **NEVER** win that NFT.
+The smart contract has a fixed tax ZAMA (2 token by default) + winning fees. And a radius (5 km² by default) for
+location of nft. The contract owner can change this values and withdraw fees. When an NFT is held by a user, it is not
+possible for another user to find the NFT. If a user puts their NFT back into play, **they will not be able to win it**.
+If a user is the creator of an NFT, they can **NEVER** win that NFT.
 
 ### Token management
 
