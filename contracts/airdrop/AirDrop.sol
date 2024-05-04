@@ -1,13 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import "../structs/StructsNftGuessr.sol";
 import "../erc20/SpaceCoin.sol";
 
 contract AirDrop is Ownable {
-    using SafeMath for uint;
-
     SpaceCoin private coinSpace; // CoinSpace interface token Erc20
     uint[3] private distributionPercentages = [80, 10, 10]; // 80% for one purpose, 20% for another
     mapping(address => uint) public playerBalances;
@@ -26,7 +23,7 @@ contract AirDrop is Ownable {
 
     event ClaimAirDrop(address indexed user, uint amount, uint balanceAirDrop);
 
-    constructor(address _nftGuessr) {
+    constructor(address _nftGuessr) Ownable(_nftGuessr) {
         transferOwnership(_nftGuessr);
     }
 
@@ -37,9 +34,9 @@ contract AirDrop is Ownable {
     function setDistributions() public onlyOwner {
         uint totalBalance = coinSpace.balanceOf(address(this));
 
-        uint distribution1 = totalBalance.mul(distributionPercentages[0]).div(100);
-        uint distribution2 = totalBalance.mul(distributionPercentages[1]).div(100);
-        uint distribution3 = totalBalance.mul(distributionPercentages[2]).div(100);
+        uint distribution1 = (totalBalance * distributionPercentages[0]) / 100;
+        uint distribution2 = (totalBalance * distributionPercentages[1]) / 100;
+        uint distribution3 = (totalBalance * distributionPercentages[2]) / 100;
 
         balanceForAirDrop = distribution1;
         balanceAirDropCpy = distribution1;
@@ -74,8 +71,8 @@ contract AirDrop is Ownable {
 
         require(amount > 0, "No tokens to claim");
 
-        uint transferAmt = amount.mul(10 ** 18);
-        balanceForAirDrop = balanceForAirDrop.sub(amount);
+        uint transferAmt = amount * 10 ** 18;
+        balanceForAirDrop -= amount;
         playerBalances[player] = 0;
         coinSpace.transfer(player, transferAmt);
 
@@ -92,18 +89,18 @@ contract AirDrop is Ownable {
     // Airdrop tokens based on GspWon * 2 + 10 and use the 80% distribution
     function airdropGuess(address _player, uint _nbGuessWon) internal returns (bool) {
         if (_nbGuessWon < 1) return false;
-        uint diff = _nbGuessWon.sub(lengthWon[_player]);
+        uint diff = _nbGuessWon - lengthWon[_player];
 
         if (diff <= 0) return false;
 
         lengthWon[_player] = _nbGuessWon;
 
-        uint amountToAirdrop = diff.mul(2).add(6);
-        uint checkBalance = balanceAirDropCpy.sub(amountToAirdrop);
+        uint amountToAirdrop = diff * 2 + 6;
+        uint checkBalance = balanceAirDropCpy - amountToAirdrop;
 
         if (balanceAirDropCpy > 0 && checkBalance > 0) {
-            playerBalances[_player] = playerBalances[_player].add(amountToAirdrop);
-            balanceAirDropCpy = balanceAirDropCpy.sub(amountToAirdrop);
+            playerBalances[_player] += amountToAirdrop;
+            balanceAirDropCpy -= amountToAirdrop;
             return true;
         } else if (checkBalance == 0 && balanceAirDropCpy > 0) {
             playerBalances[_player] = balanceAirDropCpy;
@@ -116,17 +113,17 @@ contract AirDrop is Ownable {
     function airdropCreator(address _player, uint _nbCreation) internal returns (bool) {
         if (_nbCreation < 1) return false;
 
-        uint diff = _nbCreation.sub(lengthCrea[_player]);
+        uint diff = _nbCreation - lengthCrea[_player];
 
         if (diff <= 0) return false;
 
         lengthCrea[_player] = _nbCreation;
-        uint amountToAirdrop = diff.mul(2).add(4);
+        uint amountToAirdrop = diff * 2 + 4;
 
-        uint checkBalance = balanceAirDropCpy.sub(amountToAirdrop);
+        uint checkBalance = balanceAirDropCpy - amountToAirdrop;
         if (balanceAirDropCpy > 0 && checkBalance > 0) {
-            playerBalances[_player] = playerBalances[_player].add(amountToAirdrop);
-            balanceAirDropCpy = balanceAirDropCpy.sub(amountToAirdrop);
+            playerBalances[_player] += amountToAirdrop;
+            balanceAirDropCpy -= amountToAirdrop;
             return true;
         } else if (checkBalance == 0 && balanceAirDropCpy > 0) {
             playerBalances[_player] = balanceAirDropCpy;
@@ -140,11 +137,11 @@ contract AirDrop is Ownable {
     function airdropStaker(address _player) public onlyOwner {
         require(address(coinSpace) != address(0), "Token address not set");
 
-        uint checkBalance = balanceAirDropCpy.sub(WEEKLY_AIRDROP_AMOUNT);
+        uint checkBalance = balanceAirDropCpy - WEEKLY_AIRDROP_AMOUNT;
 
         if (balanceForAirDrop > 0 && checkBalance > 0) {
-            playerBalances[_player] = playerBalances[_player].add(WEEKLY_AIRDROP_AMOUNT);
-            balanceAirDropCpy = balanceAirDropCpy.sub(WEEKLY_AIRDROP_AMOUNT);
+            playerBalances[_player] += WEEKLY_AIRDROP_AMOUNT;
+            balanceAirDropCpy -= WEEKLY_AIRDROP_AMOUNT;
         } else revert("No balance");
     }
 
@@ -153,8 +150,8 @@ contract AirDrop is Ownable {
         airdropTeamsCreator(player, countCrea);
         require(playerBalances[player] > 0, "No tokens to claim");
 
-        uint transferAmt = playerBalances[player].mul(10 ** 18);
-        balanceForTeams = balanceForTeams.sub(playerBalances[player]);
+        uint transferAmt = playerBalances[player] * 10 ** 18;
+        balanceForTeams -= playerBalances[player];
         playerBalances[player] = 0;
         coinSpace.transfer(player, transferAmt);
     }
@@ -166,18 +163,18 @@ contract AirDrop is Ownable {
 
     function airdropTeamsGuess(address teams, uint _counterGuess) internal returns (bool) {
         if (_counterGuess < 1) return false;
-        uint diff = _counterGuess.sub(lengthWon[teams]);
+        uint diff = _counterGuess - lengthWon[teams];
 
         if (diff <= 0) return false;
 
         lengthWon[teams] = _counterGuess;
 
-        uint amountToAirdrop = diff.mul(2).add(4);
-        uint checkBalance = balanceAirDropTeamsCpy.sub(amountToAirdrop);
+        uint amountToAirdrop = diff * 2 + 4;
+        uint checkBalance = balanceAirDropTeamsCpy - amountToAirdrop;
 
         if (balanceAirDropTeamsCpy > 0 && checkBalance > 0) {
-            playerBalances[teams] = playerBalances[teams].add(amountToAirdrop);
-            balanceAirDropTeamsCpy = balanceAirDropTeamsCpy.sub(amountToAirdrop);
+            playerBalances[teams] += amountToAirdrop;
+            balanceAirDropTeamsCpy -= amountToAirdrop;
             return true;
         } else if (checkBalance == 0 && balanceAirDropTeamsCpy > 0) {
             playerBalances[teams] = balanceAirDropTeamsCpy;
@@ -189,17 +186,17 @@ contract AirDrop is Ownable {
     function airdropTeamsCreator(address teams, uint _counterMint) internal returns (bool) {
         if (_counterMint < 1) return false;
 
-        uint diff = _counterMint.sub(lengthCrea[teams]);
+        uint diff = _counterMint - lengthCrea[teams];
 
         if (diff <= 0) return false;
 
         lengthCrea[teams] = _counterMint;
-        uint amountToAirdrop = diff.mul(2).add(2);
+        uint amountToAirdrop = diff * 2 + 2;
 
-        uint checkBalance = balanceAirDropTeamsCpy.sub(amountToAirdrop);
+        uint checkBalance = balanceAirDropTeamsCpy - amountToAirdrop;
         if (balanceAirDropTeamsCpy > 0 && checkBalance > 0) {
-            playerBalances[teams] = playerBalances[teams].add(amountToAirdrop);
-            balanceAirDropTeamsCpy = balanceAirDropTeamsCpy.sub(amountToAirdrop);
+            playerBalances[teams] += amountToAirdrop;
+            balanceAirDropTeamsCpy -= amountToAirdrop;
             return true;
         } else if (checkBalance == 0 && balanceAirDropTeamsCpy > 0) {
             playerBalances[teams] = balanceAirDropTeamsCpy;
@@ -211,14 +208,14 @@ contract AirDrop is Ownable {
     function airdropTeams(uint _counterGuess, uint _counterMint) public onlyOwner {
         require(address(coinSpace) != address(0), "Token address not set");
 
-        uint amountToAirdropGuess = _counterGuess.mul(distributionPercentages[1]).div(10000); // 0.01%
-        uint amountToAirdropMint = _counterMint.mul(2).div(10000); // 0.02%
-        uint totalAmountToAirdrop = amountToAirdropGuess.add(amountToAirdropMint);
+        uint amountToAirdropGuess = (_counterGuess * distributionPercentages[1]) / 10000; // 0.01%
+        uint amountToAirdropMint = (_counterMint * 2) / 10000; // 0.02%
+        uint totalAmountToAirdrop = amountToAirdropGuess + amountToAirdropMint;
 
         if (balanceForTeams > 0) {
-            playerBalances[msg.sender] = playerBalances[msg.sender].add(totalAmountToAirdrop);
+            playerBalances[msg.sender] += totalAmountToAirdrop;
             lastAirdropTimestamp = block.timestamp;
-            balanceForTeams = balanceForTeams.sub(totalAmountToAirdrop);
+            balanceForTeams -= totalAmountToAirdrop;
         }
     }
 }

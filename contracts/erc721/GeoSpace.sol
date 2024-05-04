@@ -4,21 +4,25 @@ import "../libraries/Lib.sol";
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "fhevm/abstracts/EIP712WithModifier.sol";
-import "@openzeppelin/contracts/utils/Counters.sol";
-import "@openzeppelin/contracts/utils/math/SafeMath.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/utils/math/Math.sol";
+import "fhevm/oracle/OracleCaller.sol";
+
 import "../structs/StructsNftGuessr.sol";
 
-contract GeoSpace is ERC721Enumerable, Ownable, EIP712WithModifier {
-    using SafeMath for uint;
-    using Counters for Counters.Counter;
-
-    Counters.Counter public _tokenIdCounter; // tokenCounter id NFT
+contract GeoSpace is ERC721Enumerable, Ownable, EIP712WithModifier, OracleCaller {
+    uint256 private _tokenIdCounter; // tokenCounter id NFT
     string private _baseTokenURI; // Don't use actually
     address public contractOwner;
 
     uint public lifeMint = 50;
     uint public subLife = 1;
     uint public addLife = 1;
+
+    bool public yBool;
+    ebool xBool;
+    mapping(address => bool) public boolUsers;
+    mapping(address => ebool) public eBoolUsers;
 
     mapping(address => uint[]) public tokenIdResetLife;
     mapping(address => uint) public lifePointTotal;
@@ -38,9 +42,11 @@ contract GeoSpace is ERC721Enumerable, Ownable, EIP712WithModifier {
     mapping(address => uint) public balanceRewardStaker;
     mapping(address => uint) public balanceRewardCreator;
 
-    constructor(address _nftGuessr) ERC721("GeoSpace", "GSP") EIP712WithModifier("Authorization token", "1") {
-        transferOwnership(_nftGuessr);
+    constructor(
+        address _nftGuessr
+    ) ERC721("GeoSpace", "GSP") EIP712WithModifier("Authorization token", "1") Ownable(_nftGuessr) {
         contractOwner = msg.sender;
+        xBool = TFHE.asEbool(true);
     }
 
     modifier isOwner() {
@@ -60,24 +66,6 @@ contract GeoSpace is ERC721Enumerable, Ownable, EIP712WithModifier {
     function getWinIds(address player) external view returns (uint[] memory) {
         return winners[player];
     }
-    // Internal function internal to check if location does exist for creation
-    function isLocationAlreadyUsed(Location memory newLocation) internal view {
-        for (uint i = 1; i <= getTotalNft(); i++) {
-            TFHE.optReq(TFHE.ne(newLocation.lat, locations[i].lat));
-            TFHE.optReq(TFHE.ne(newLocation.lng, locations[i].lng));
-        }
-    }
-
-    // // Function to get an array of NFTs owned by a user.
-    // function getOwnedSafeNFTs(address user) external view returns (uint[] memory) {
-    //     uint[] memory ownedNFTs = new uint[](balanceOf(user));
-
-    //     for (uint i = 0; i < balanceOf(user); i++) {
-    //         ownedNFTs[i] = tokenOfOwnerByIndex(user, i);
-    //     }
-
-    //     return ownedNFTs;
-    // }
 
     // Function to get an array of NFTs owned by a user.
     function getOwnedNFTs(address user) external view returns (uint[] memory) {
@@ -124,6 +112,25 @@ contract GeoSpace is ERC721Enumerable, Ownable, EIP712WithModifier {
 
     function getNftWinnerForUser(address user) external view returns (uint[] memory) {
         return winners[user];
+    }
+
+    function callbackBool(uint256 /*requestID*/, bool decryptedInput) public onlyOracle returns (bool) {
+        //yBool = decryptedInput;
+        boolUsers[msg.sender] = decryptedInput;
+        return boolUsers[msg.sender];
+    }
+
+    function isOnPoints(euint32 lat, euint32 lng, Location memory location) internal {
+        ebool isLatSouth = TFHE.ge(lat, location.southLat); //if lat >= location.southLat => true if correct
+        ebool isLatNorth = TFHE.le(lat, location.northLat); // if lat <= location.northLat => true if correct
+        ebool isLatValid = TFHE.and(isLatSouth, isLatNorth);
+
+        ebool isLngWest = TFHE.ge(lng, location.westLon); // true if correct
+        ebool isLngEast = TFHE.le(lng, location.eastLon); // true if correct
+        ebool isLngValid = TFHE.and(isLngWest, isLngEast);
+        ebool[] memory cts = new ebool[](1);
+        cts[0] = TFHE.and(isLngValid, isLatValid);
+        Oracle.requestDecryption(cts, this.callbackBool.selector, 0, block.timestamp + 100);
     }
 
     // Internal function to get strcture result get Location decrypt
@@ -196,15 +203,15 @@ contract GeoSpace is ERC721Enumerable, Ownable, EIP712WithModifier {
     }
     /************************ LIFE POINTS MINT FUNCTIONS *************************/
     function subLifePoint(address _ownerNft) external onlyOwner {
-        lifePointTotal[_ownerNft] = lifePointTotal[_ownerNft].sub(subLife);
+        lifePointTotal[_ownerNft] = lifePointTotal[_ownerNft] - subLife;
     }
 
     function subLifePointTotal(address _ownerNft) internal view returns (uint) {
         // Calculer combien de points vous devez enlever
         uint expectedTotalPointsLength = tokenIdResetLife[_ownerNft].length; // 2
-        uint expectedTotalPoints = expectedTotalPointsLength.mul(lifeMint); // 100
+        uint expectedTotalPoints = expectedTotalPointsLength * lifeMint; // 100
         uint pointsToRemove = expectedTotalPoints >= lifePointTotal[_ownerNft]
-            ? expectedTotalPoints.sub(lifePointTotal[_ownerNft])
+            ? expectedTotalPoints - lifePointTotal[_ownerNft]
             : 0;
         return pointsToRemove;
     }
@@ -213,22 +220,22 @@ contract GeoSpace is ERC721Enumerable, Ownable, EIP712WithModifier {
         // Calculer combien de points vous devez enlever
         uint amtToRemove = subLifePointTotal(_ownerNft);
         if (amtToRemove < 1) return;
-        saveLifePointTotal[_ownerNft] = saveLifePointTotal[_ownerNft].add(amtToRemove);
-        lifePointTotal[_ownerNft] = lifePointTotal[_ownerNft].sub(amtToRemove);
+        saveLifePointTotal[_ownerNft] = saveLifePointTotal[_ownerNft] + amtToRemove;
+        lifePointTotal[_ownerNft] = lifePointTotal[_ownerNft] - amtToRemove;
     }
 
     function addSaveLifePointsToTotal(address _ownerNft) internal {
         // Calculer combien de points vous devez enlever
         uint amtToAdd = saveLifePointTotal[_ownerNft];
         if (amtToAdd < 1) return;
-        saveLifePointTotal[_ownerNft] = saveLifePointTotal[_ownerNft].sub(amtToAdd);
-        lifePointTotal[_ownerNft] = lifePointTotal[_ownerNft].add(amtToAdd);
+        saveLifePointTotal[_ownerNft] = saveLifePointTotal[_ownerNft] - amtToAdd;
+        lifePointTotal[_ownerNft] = lifePointTotal[_ownerNft] + amtToAdd;
     }
 
     function manageResetLifeMint(address player, uint tokenId) internal {
         if (!Lib.contains(tokenIdResetLife[player], tokenId)) {
             tokenIdResetLife[player].push(tokenId);
-            lifePointTotal[player] = lifePointTotal[player].add(lifeMint);
+            lifePointTotal[player] = lifePointTotal[player] + lifeMint;
         } else {
             addSaveLifePointsToTotal(player);
         }
@@ -247,18 +254,25 @@ contract GeoSpace is ERC721Enumerable, Ownable, EIP712WithModifier {
         // winningFees[tokenId] = feesToSet;
     }
 
+    /*function isLocationAlreadyUsed(Location memory newLocation) internal view {
+        for (uint i = 1; i <= getTotalNft(); i++) {
+            //TFHE.optReq(TFHE.ne(newLocation.lat, locations[i].lat));
+            TFHE.optReq(TFHE.ne(newLocation.lng, locations[i].lng));
+        }
+    }*/
+
     function mint(
         address player,
         bytes[] calldata data,
         uint feesData,
         uint baseIndex
     ) external onlyOwner returns (uint) {
-        _tokenIdCounter.increment();
-        uint tokenId = _tokenIdCounter.current();
+        _tokenIdCounter++;
+        uint tokenId = _tokenIdCounter;
 
         Location memory locate = Lib.createObjectLocation(data, baseIndex);
 
-        isLocationAlreadyUsed(locate);
+        // isLocationAlreadyUsed(locate);
         setDataForMinting(player, tokenId, feesData, locate);
         _mint(address(this), tokenId);
         return tokenId;
@@ -275,6 +289,8 @@ contract GeoSpace is ERC721Enumerable, Ownable, EIP712WithModifier {
         euint32 lat = TFHE.asEuint32(userLatitude);
         euint32 lng = TFHE.asEuint32(userLongitude);
 
+        eBoolUsers[msg.sender] = TFHE.asEbool(false);
+
         uint totalSupply = totalSupply();
 
         require(_tokenId <= totalSupply, "Your token id is invalid");
@@ -285,12 +301,14 @@ contract GeoSpace is ERC721Enumerable, Ownable, EIP712WithModifier {
 
         address actualOwner = ownerNft[_tokenId];
         require(actualOwner != player, "you are the owner !"); // prevent
-
-        if (Lib.isOnPoint(lat, lng, locations[_tokenId])) {
+        isOnPoints(lat, lng, locations[_tokenId]);
+        if (boolUsers[msg.sender]) {
             resetMapping(_tokenId, actualOwner); // Reset data with delete
             Lib.removeElement(resetNft[actualOwner], _tokenId); // delete resetOwner from array mapping
             ownerNft[_tokenId] = player; // Allows recording the new owner for the reset (NFTs back in game).
             winners[player].push(_tokenId);
+            boolUsers[msg.sender] = false;
+            eBoolUsers[msg.sender] = TFHE.asEbool(false);
             _transfer(ownerOf(_tokenId), player, _tokenId); //Transfer nft to winner
             return true;
         }
@@ -300,7 +318,7 @@ contract GeoSpace is ERC721Enumerable, Ownable, EIP712WithModifier {
     function resetMapping(uint tokenId, address _ownerNft) internal {
         if (Lib.contains(tokenIdResetLife[_ownerNft], tokenId)) {
             uint amtLifeSub = subLifePointTotal(_ownerNft);
-            if (amtLifeSub != 0) lifePointTotal[_ownerNft] = lifePointTotal[_ownerNft].sub(amtLifeSub);
+            if (amtLifeSub != 0) lifePointTotal[_ownerNft] = lifePointTotal[_ownerNft] - amtLifeSub;
         }
         delete userFees[_ownerNft][tokenId];
         // winningFees[tokenId] = 0;

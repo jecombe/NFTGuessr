@@ -7,26 +7,15 @@ import "../airdrop/AirDrop.sol";
 import "../erc721/GeoSpace.sol";
 import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import "fhevm/lib/TFHE.sol";
-import "@openzeppelin/contracts/utils/Counters.sol";
+// import "@openzeppelin/contracts/utils/Counters.sol";
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
-import "@openzeppelin/contracts/utils/math/SafeMath.sol";
+// import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "fhevm/abstracts/EIP712WithModifier.sol";
 
 library Lib {
     // Internal function to check if user in on nft radius.
-    function isOnPoint(euint32 lat, euint32 lng, Location memory location) internal view returns (bool) {
-        ebool isLatSouth = TFHE.ge(lat, location.southLat); //if lat >= location.southLat => true if correct
-        ebool isLatNorth = TFHE.le(lat, location.northLat); // if lat <= location.northLat => true if correct
-        ebool isLatValid = TFHE.and(isLatSouth, isLatNorth);
-
-        ebool isLngWest = TFHE.ge(lng, location.westLon); // true if correct
-        ebool isLngEast = TFHE.le(lng, location.eastLon); // true if correct
-        ebool isLngValid = TFHE.and(isLngWest, isLngEast);
-
-        return TFHE.decrypt(TFHE.and(isLngValid, isLatValid)); // Check if lat AND long are valid
-    }
 
     // Internal function to remove an element from an array uint.
     function removeElement(uint[] storage array, uint element) internal {

@@ -19,3 +19,8 @@ struct Location {
     euint32 lng;
     bool isValid;
 }
+
+struct LastError {
+    euint8 error;
+    uint timestamp;
+}

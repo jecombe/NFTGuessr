@@ -12,7 +12,7 @@ contract SpaceCoin is ERC20, Ownable {
     event RecoverTokens(address indexed tokenAddress, address indexed to, uint amount);
     event Burn(address indexed from, uint amount);
 
-    constructor(address _nftGuessr, address _airdrop) ERC20("SpaceCoin", "SPC") {
+    constructor(address _nftGuessr, address _airdrop) ERC20("SpaceCoin", "SPC") Ownable(_nftGuessr) {
         transferOwnership(_nftGuessr);
 
         _mint(_airdrop, 50000000 * 10 ** decimals());
