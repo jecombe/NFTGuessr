@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.20;
 
 import "../structs/StructsNftGuessr.sol";
 import "../erc20/SpaceCoin.sol";
@@ -23,9 +23,7 @@ contract AirDrop is Ownable {
 
     event ClaimAirDrop(address indexed user, uint amount, uint balanceAirDrop);
 
-    constructor(address _nftGuessr) Ownable(_nftGuessr) {
-        transferOwnership(_nftGuessr);
-    }
+    constructor(address _nftGuessr) Ownable(_nftGuessr) {}
 
     function setAddressToken(address _tokenErc20) external onlyOwner {
         coinSpace = SpaceCoin(_tokenErc20);
