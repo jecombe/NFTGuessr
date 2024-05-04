@@ -114,13 +114,16 @@ contract GeoSpace is ERC721Enumerable, Ownable, EIP712WithModifier, OracleCaller
         return winners[user];
     }
 
-    function callbackBool(uint256 /*requestID*/, bool decryptedInput) public onlyOracle returns (bool) {
+    function callbackBool(uint256 requestID, bool decryptedInput) public onlyOracle returns (bool) {
         //yBool = decryptedInput;
-        boolUsers[msg.sender] = decryptedInput;
-        return boolUsers[msg.sender];
+        address[] memory params = getParamsAddress(requestID);
+        address player = address(params[0]);
+
+        boolUsers[player] = decryptedInput;
+        return boolUsers[player];
     }
 
-    function isOnPoints(euint32 lat, euint32 lng, Location memory location) internal {
+    function isOnPoints(euint32 lat, euint32 lng, Location memory location, address _player) internal {
         ebool isLatSouth = TFHE.ge(lat, location.southLat); //if lat >= location.southLat => true if correct
         ebool isLatNorth = TFHE.le(lat, location.northLat); // if lat <= location.northLat => true if correct
         ebool isLatValid = TFHE.and(isLatSouth, isLatNorth);
@@ -130,7 +133,8 @@ contract GeoSpace is ERC721Enumerable, Ownable, EIP712WithModifier, OracleCaller
         ebool isLngValid = TFHE.and(isLngWest, isLngEast);
         ebool[] memory cts = new ebool[](1);
         cts[0] = TFHE.and(isLngValid, isLatValid);
-        Oracle.requestDecryption(cts, this.callbackBool.selector, 0, block.timestamp + 100);
+        uint256 requestID = Oracle.requestDecryption(cts, this.callbackBool.selector, 0, block.timestamp + 100);
+        addParamsAddress(requestID, _player);
     }
 
     // Internal function to get strcture result get Location decrypt
@@ -289,7 +293,7 @@ contract GeoSpace is ERC721Enumerable, Ownable, EIP712WithModifier, OracleCaller
         euint32 lat = TFHE.asEuint32(userLatitude);
         euint32 lng = TFHE.asEuint32(userLongitude);
 
-        eBoolUsers[msg.sender] = TFHE.asEbool(false);
+        eBoolUsers[player] = TFHE.asEbool(false);
 
         uint totalSupply = totalSupply();
 
@@ -301,14 +305,14 @@ contract GeoSpace is ERC721Enumerable, Ownable, EIP712WithModifier, OracleCaller
 
         address actualOwner = ownerNft[_tokenId];
         require(actualOwner != player, "you are the owner !"); // prevent
-        isOnPoints(lat, lng, locations[_tokenId]);
-        if (boolUsers[msg.sender]) {
+        isOnPoints(lat, lng, locations[_tokenId], player);
+        if (boolUsers[player]) {
             resetMapping(_tokenId, actualOwner); // Reset data with delete
             Lib.removeElement(resetNft[actualOwner], _tokenId); // delete resetOwner from array mapping
             ownerNft[_tokenId] = player; // Allows recording the new owner for the reset (NFTs back in game).
             winners[player].push(_tokenId);
-            boolUsers[msg.sender] = false;
-            eBoolUsers[msg.sender] = TFHE.asEbool(false);
+            boolUsers[player] = false;
+            eBoolUsers[player] = TFHE.asEbool(false);
             _transfer(ownerOf(_tokenId), player, _tokenId); //Transfer nft to winner
             return true;
         }
