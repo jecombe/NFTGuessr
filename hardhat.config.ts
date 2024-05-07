@@ -60,7 +60,7 @@ function getChainConfig(chain: keyof typeof chainIds): NetworkUserConfig {
       jsonRpcUrl = "https://fhenode.fhenix.io/new/evm";
       break;
     case "inco":
-      jsonRpcUrl = "https://evm-rpc.inco.network/";
+      jsonRpcUrl = "https://testnet.inco.org";
       break;
     default:
       jsonRpcUrl = "https://" + chain + ".infura.io/v3/" + infuraApiKey;
