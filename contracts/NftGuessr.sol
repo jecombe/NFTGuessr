@@ -23,9 +23,9 @@ contract NftGuessr is Ownable, ReentrancyGuard {
     uint public totalStakedAmount;
     string private _baseTokenURI; // Don't use actually
     address public contractOwner;
-    uint public fees = 2 ether; // Fees (Zama) base
-    uint public rewardFeesStakers = 1 ether;
-    uint public rewardFeesTeams = 1 ether;
+    uint public fees = 0.2 ether; // Fees (Zama) base
+    uint public rewardFeesStakers = 0.1 ether;
+    uint public rewardFeesTeams = 0.1 ether;
 
     uint public feesCreation = 1; // Fees (SPC) nft creation Geospace
     uint public feesRewardCreator = 1;
